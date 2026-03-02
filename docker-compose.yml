@@ -1,0 +1,68 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────
+# GENESIS NODE — Local development & production-like environment
+#
+# Usage:
+#   cp .env.example .env          # fill in secrets
+#   docker compose up --build
+# ──────────────────────────────────────────────────────────────
+
+networks:
+  genesis_net:
+    driver: bridge
+
+volumes:
+  agent_workspaces:
+
+services:
+
+  # ── Orchestrator ────────────────────────────────────────────
+  orchestrator:
+    build:
+      context: ./orchestrator
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks: [genesis_net]
+    environment:
+      SUPABASE_URL:         ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      DOCKER_AGENT_IMAGE:   genesis-node/devagent:latest
+      DOCKER_NETWORK:       genesis_net
+      MAX_CONCURRENT_TASKS: ${MAX_CONCURRENT_TASKS:-5}
+      TASK_TIMEOUT_SECONDS: ${TASK_TIMEOUT_SECONDS:-600}
+      XAI_API_KEY:          ${XAI_API_KEY}
+    volumes:
+      # Give orchestrator access to Docker socket so it can launch agent containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Shared workspace directory — each task gets a subdirectory
+      - agent_workspaces:/tmp/agent_workspaces
+    ports:
+      - "8080:8080"   # health endpoint
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Next.js Frontend ─────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    networks: [genesis_net]
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL:       ${SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY:  ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY:      ${SUPABASE_SERVICE_KEY}
+      STRIPE_SECRET_KEY:              ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET:          ${STRIPE_WEBHOOK_SECRET}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE: ${STRIPE_PUBLISHABLE_KEY}
+      NEXTAUTH_URL:                   ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET:                ${NEXTAUTH_SECRET}
+    ports:
+      - "3000:3000"
+    depends_on:
+      orchestrator:
+        condition: service_healthy

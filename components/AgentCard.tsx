@@ -1,0 +1,82 @@
+"use client";
+
+import Link from "next/link";
+import { BoltIcon, CheckCircleIcon, SparklesIcon } from "lucide-react";
+import type { Agent } from "@/lib/database.types";
+
+interface Props {
+  agent: Agent;
+}
+
+export default function AgentCard({ agent }: Props) {
+  const price = (agent.price_per_task / 100).toFixed(2);
+
+  return (
+    <article className="group relative flex flex-col rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 transition hover:border-slate-700 hover:bg-slate-900/90 hover:shadow-xl hover:shadow-black/40">
+      {agent.is_featured && (
+        <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-indigo-600/20 border border-indigo-500/40 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+          <SparklesIcon className="h-2.5 w-2.5" />
+          Featured
+        </span>
+      )}
+
+      {/* Header */}
+      <div className="flex items-start gap-3 mb-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 ring-1 ring-slate-700/60 text-lg">
+          {agent.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={agent.cover_image_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
+          ) : (
+            "🤖"
+          )}
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-slate-100 truncate">{agent.name}</h3>
+          <p className="text-xs text-slate-500 truncate">@{agent.slug}</p>
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-sm text-slate-400 leading-relaxed flex-1 line-clamp-3 mb-4">
+        {agent.description}
+      </p>
+
+      {/* Tags */}
+      {agent.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {agent.tags.slice(0, 4).map((tag) => (
+            <span
+              key={tag}
+              className="rounded-md border border-slate-800 bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-slate-400"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Stats row */}
+      <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/80 pt-3 mt-auto">
+        <span className="flex items-center gap-1">
+          <CheckCircleIcon className="h-3.5 w-3.5 text-emerald-500" />
+          {agent.total_tasks_completed.toLocaleString()} tasks
+        </span>
+        {agent.avg_completion_seconds && (
+          <span>~{Math.round(agent.avg_completion_seconds / 60)}m avg</span>
+        )}
+        <span className="flex items-center gap-0.5 text-indigo-400 font-medium">
+          <BoltIcon className="h-3 w-3" />
+          {price} credits / task
+        </span>
+      </div>
+
+      {/* CTA */}
+      <Link
+        href={`/agents/${agent.slug}`}
+        className="mt-4 block w-full rounded-xl bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-400 py-2 text-center text-sm font-medium text-slate-950 shadow-md shadow-indigo-500/30 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+      >
+        Deploy agent →
+      </Link>
+    </article>
+  );
+}

@@ -63,22 +63,7 @@ async def ensure_darwin_user() -> str:
             "Content-Type": "application/json",
         }
 
-        # Search existing users
-        res = await http.get(
-            f"{SUPABASE_URL}/auth/v1/admin/users",
-            headers=headers,
-            params={"filter": f"email={darwin_email}"},
-        )
-        if res.status_code == 200:
-            data = res.json()
-            users = data.get("users", [])
-            if users:
-                uid = users[0]["id"]
-                log.info(f"Darwin user already exists: {uid}")
-                DARWIN_USER_ID = uid
-                return uid
-
-        # Create Darwin auth user
+        # Try to create Darwin auth user first
         create_res = await http.post(
             f"{SUPABASE_URL}/auth/v1/admin/users",
             headers=headers,
@@ -93,23 +78,50 @@ async def ensure_darwin_user() -> str:
         if create_res.status_code in (200, 201):
             uid = create_res.json()["id"]
             log.info(f"✅ Darwin user created: {uid}")
+        elif create_res.status_code == 422 and "email_exists" in create_res.text:
+            # User already exists — find by iterating pages
+            log.info("Darwin user exists, searching for ID...")
+            uid = None
+            page = 1
+            while True:
+                list_res = await http.get(
+                    f"{SUPABASE_URL}/auth/v1/admin/users",
+                    headers=headers,
+                    params={"page": page, "per_page": 100},
+                )
+                if list_res.status_code != 200:
+                    break
+                data = list_res.json()
+                users = data.get("users", [])
+                for u in users:
+                    if u.get("email") == darwin_email:
+                        uid = u["id"]
+                        break
+                if uid or len(users) < 100:
+                    break
+                page += 1
 
-            # Ensure profile exists
-            try:
-                client.table("profiles").upsert({
-                    "id": uid,
-                    "role": "dev",
-                    "display_name": "Darwin AI",
-                    "balance": 999999,
-                }).execute()
-            except Exception as pe:
-                log.warning(f"Profile upsert warning: {pe}")
-
-            DARWIN_USER_ID = uid
-            return uid
+            if not uid:
+                log.error("Could not find Darwin user ID after email_exists error")
+                raise RuntimeError("Cannot start Darwin without a valid user account")
+            log.info(f"Found existing Darwin user: {uid}")
         else:
             log.error(f"Failed to create Darwin user: {create_res.status_code} {create_res.text}")
             raise RuntimeError("Cannot start Darwin without a valid user account")
+
+        # Ensure profile exists
+        try:
+            client.table("profiles").upsert({
+                "id": uid,
+                "role": "dev",
+                "display_name": "Darwin AI",
+                "balance": 999999,
+            }).execute()
+        except Exception as pe:
+            log.warning(f"Profile upsert warning: {pe}")
+
+        DARWIN_USER_ID = uid
+        return uid
 
 
 def db() -> Client:

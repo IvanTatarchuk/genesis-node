@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BotIcon, PlusIcon, LayoutDashboardIcon, ShoppingBagIcon, SparklesIcon, TrophyIcon, KeyIcon, RocketIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/database.types";
+import NotificationCenter from "@/components/NotificationCenter";
 
 interface Props {
   profile: Profile | null;
@@ -118,6 +119,9 @@ export default function Navbar({ profile }: Props) {
                 </span>
                 <span className="text-slate-500">credits</span>
               </div>
+
+              {/* Notification bell */}
+              <NotificationCenter userId={profile.id} />
 
               {/* Avatar / sign out */}
               <button

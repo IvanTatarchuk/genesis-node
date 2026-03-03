@@ -13,22 +13,33 @@ from typing import Optional
 
 from supabase import create_client, Client
 import anthropic
+from openai import AsyncOpenAI
 from playwright.async_api import async_playwright, Page
 
 
-SUPABASE_URL        = os.environ["SUPABASE_URL"]
-SUPABASE_KEY        = os.environ["SUPABASE_SERVICE_KEY"]
-ANTHROPIC_API_KEY   = os.environ["ANTHROPIC_API_KEY"]
-CLAUDE_MODEL        = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
-MAX_STEPS           = int(os.getenv("MAX_STEPS", "20"))
-TIMEOUT_SECS        = int(os.getenv("TASK_TIMEOUT_SECONDS", "600"))
+SUPABASE_URL          = os.environ["SUPABASE_URL"]
+SUPABASE_KEY          = os.environ["SUPABASE_SERVICE_KEY"]
+OLLAMA_URL            = os.getenv("OLLAMA_URL", "")
+OLLAMA_MODEL          = os.getenv("OLLAMA_MODEL", "llava")
+ANTHROPIC_API_KEY     = os.environ.get("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL          = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
+MAX_STEPS             = int(os.getenv("MAX_STEPS", "20"))
+TIMEOUT_SECS          = int(os.getenv("TASK_TIMEOUT_SECONDS", "600"))
+
+USE_OLLAMA = bool(OLLAMA_URL)
 
 
 def supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def claude() -> anthropic.AsyncAnthropic:
+def _ollama_client() -> AsyncOpenAI:
+    base = OLLAMA_URL.rstrip("/")
+    base = base + "/v1" if not base.endswith("/v1") else base
+    return AsyncOpenAI(api_key="ollama", base_url=base)
+
+
+def _claude_client() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
 
@@ -56,7 +67,8 @@ async def run_task(task_id: str, goal: str, system_prompt: str):
     4. Repeat until DONE or max steps
     """
     db = supabase()
-    ai = claude()
+    ai_ollama = _ollama_client() if USE_OLLAMA else None
+    ai_claude = _claude_client() if not USE_OLLAMA else None
 
     # Mark as running
     db.table("tasks").update({
@@ -90,33 +102,40 @@ async def run_task(task_id: str, goal: str, system_prompt: str):
                 await log(db, task_id, "thought", f"Step {step + 1}/{MAX_STEPS} — thinking…")
 
                 # ── THINK ──────────────────────────────────────────────────
-                # Take screenshot for vision context (Claude supports vision natively)
                 try:
                     screenshot = await screenshot_base64(page)
-                    vision_content = [
-                        {"type": "text", "text": "Current browser state (screenshot):"},
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": screenshot,
-                            },
-                        },
-                    ]
-                    think_messages = messages + [{"role": "user", "content": vision_content}]
+                    if USE_OLLAMA:
+                        vision_content = [
+                            {"type": "text", "text": "Current browser state (screenshot):"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{screenshot}"}},
+                        ]
+                        think_messages = messages + [{"role": "user", "content": vision_content}]
+                    else:
+                        vision_content = [
+                            {"type": "text", "text": "Current browser state (screenshot):"},
+                            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": screenshot}},
+                        ]
+                        think_messages = messages + [{"role": "user", "content": vision_content}]
                 except Exception:
                     think_messages = messages
 
-                response = await ai.messages.create(
-                    model=CLAUDE_MODEL,
-                    system=full_system,
-                    messages=think_messages,
-                    max_tokens=1024,
-                    temperature=0.2,
-                )
-
-                thought = response.content[0].text if response.content else ""
+                if USE_OLLAMA:
+                    resp = await ai_ollama.chat.completions.create(
+                        model=OLLAMA_MODEL,
+                        messages=[{"role": "system", "content": full_system}] + think_messages,
+                        max_tokens=1024,
+                        temperature=0.2,
+                    )
+                    thought = resp.choices[0].message.content or ""
+                else:
+                    response = await ai_claude.messages.create(
+                        model=CLAUDE_MODEL,
+                        system=full_system,
+                        messages=think_messages,
+                        max_tokens=1024,
+                        temperature=0.2,
+                    )
+                    thought = response.content[0].text if response.content else ""
                 messages.append({"role": "assistant", "content": thought})
                 await log(db, task_id, "thought", thought)
 

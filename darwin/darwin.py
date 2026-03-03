@@ -38,8 +38,78 @@ SUPABASE_URL      = os.environ["SUPABASE_URL"]
 SUPABASE_KEY      = os.environ["SUPABASE_SERVICE_KEY"]
 XAI_API_KEY       = os.environ["XAI_API_KEY"]
 GENESIS_API_URL   = os.getenv("GENESIS_API_URL", "https://agents-dev-roan.vercel.app")
-DARWIN_USER_ID    = os.environ["DARWIN_USER_ID"]   # Supabase profile ID of Darwin's account
 AGENTS_PER_DAY    = int(os.getenv("AGENTS_PER_DAY", "10"))
+
+DARWIN_USER_ID: str = ""  # resolved on startup
+
+
+async def ensure_darwin_user() -> str:
+    """Create Darwin's Supabase account on first run, return user ID."""
+    global DARWIN_USER_ID
+    cached = os.getenv("DARWIN_USER_ID", "").strip()
+    if cached:
+        DARWIN_USER_ID = cached
+        log.info(f"Using DARWIN_USER_ID from env: {cached}")
+        return cached
+
+    client = db()
+    darwin_email = "darwin@genesis-node.internal"
+
+    # Check if profile already exists by email via auth admin API
+    async with httpx.AsyncClient(timeout=15) as http:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        # Search existing users
+        res = await http.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers=headers,
+            params={"filter": f"email={darwin_email}"},
+        )
+        if res.status_code == 200:
+            data = res.json()
+            users = data.get("users", [])
+            if users:
+                uid = users[0]["id"]
+                log.info(f"Darwin user already exists: {uid}")
+                DARWIN_USER_ID = uid
+                return uid
+
+        # Create Darwin auth user
+        create_res = await http.post(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers=headers,
+            json={
+                "email": darwin_email,
+                "password": hashlib.sha256(SUPABASE_KEY.encode()).hexdigest()[:32],
+                "email_confirm": True,
+                "user_metadata": {"display_name": "Darwin AI", "role": "dev"},
+            },
+        )
+
+        if create_res.status_code in (200, 201):
+            uid = create_res.json()["id"]
+            log.info(f"✅ Darwin user created: {uid}")
+
+            # Ensure profile exists
+            try:
+                client.table("profiles").upsert({
+                    "id": uid,
+                    "role": "dev",
+                    "display_name": "Darwin AI",
+                    "balance": 999999,
+                }).execute()
+            except Exception as pe:
+                log.warning(f"Profile upsert warning: {pe}")
+
+            DARWIN_USER_ID = uid
+            return uid
+        else:
+            log.error(f"Failed to create Darwin user: {create_res.status_code} {create_res.text}")
+            raise RuntimeError("Cannot start Darwin without a valid user account")
 
 
 def db() -> Client:
@@ -279,6 +349,9 @@ async def darwin_daily_run():
     log.info("=" * 60)
     log.info(f"🦠 DARWIN DAILY RUN — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     log.info("=" * 60)
+
+    # Ensure Darwin has an account
+    await ensure_darwin_user()
 
     client = db()
 

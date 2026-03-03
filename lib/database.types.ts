@@ -12,10 +12,11 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
-export type LogType    = "thought" | "action" | "result" | "error" | "system";
-export type TxnType    = "purchase" | "task_charge" | "refund" | "bonus";
-export type UserRole   = "dev" | "client";
+export type TaskStatus        = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type LogType           = "thought" | "action" | "result" | "error" | "system";
+export type TxnType           = "purchase" | "task_charge" | "refund" | "bonus";
+export type UserRole          = "dev" | "client";
+export type SubscriptionTier  = "free" | "starter" | "pro" | "agency";
 
 export interface Database {
   public: {
@@ -26,10 +27,13 @@ export interface Database {
           role:               UserRole;
           display_name:       string | null;
           avatar_url:         string | null;
-          balance:            number;
-          stripe_customer_id: string | null;
-          created_at:         string;
-          updated_at:         string;
+          balance:             number;
+          stripe_customer_id:  string | null;
+          subscription_tier:   SubscriptionTier;
+          subscription_id:     string | null;
+          subscription_ends:   string | null;
+          created_at:          string;
+          updated_at:          string;
         };
         Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;

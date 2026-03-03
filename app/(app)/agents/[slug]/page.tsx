@@ -1,7 +1,9 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import type { Agent } from "@/lib/database.types";
 import DeployForm from "@/components/DeployForm";
+import ReviewSection from "@/components/ReviewSection";
+import Link from "next/link";
 import {
   BoltIcon,
   CheckCircleIcon,
@@ -32,6 +34,29 @@ export default async function AgentDetailPage({ params }: Props) {
   const agent = agentRaw as any as Agent;
   const price  = (agent.price_per_task / 100).toFixed(2);
 
+  // Fetch reviews + creator profile
+  const service = createServiceClient();
+  const [{ data: reviews }, { data: creator }] = await Promise.all([
+    service
+      .from("reviews")
+      .select("id, rating, comment, created_at, reviewer:reviewer_id(display_name, avatar_url)")
+      .eq("agent_id", agent.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    service
+      .from("profiles")
+      .select("id, display_name, avatar_url")
+      .eq("id", (agentRaw as unknown as { creator_id: string }).creator_id)
+      .single(),
+  ]);
+
+  const userReview = user
+    ? (reviews ?? []).find((r) => (r.reviewer as unknown as { id?: string })?.id === user.id) ?? null
+    : null;
+
+  const avgRating = (agentRaw as unknown as { avg_rating?: number }).avg_rating ?? null;
+  const reviewCount = (agentRaw as unknown as { review_count?: number }).review_count ?? 0;
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:items-start">
@@ -46,13 +71,32 @@ export default async function AgentDetailPage({ params }: Props) {
                 ) : "🤖"}
               </div>
               <div>
+                <div>
                 <h1 className="text-2xl font-semibold text-slate-100">{agent.name}</h1>
                 <p className="mt-1 text-sm text-slate-400">{agent.description}</p>
+                {creator && (
+                  <Link
+                    href={`/dev/${creator.id}`}
+                    className="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-400 transition"
+                  >
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-800 text-[9px] font-bold text-slate-400 ring-1 ring-slate-700">
+                      {creator.display_name?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    by {creator.display_name ?? "Anonymous"}
+                  </Link>
+                )}
+              </div>
               </div>
             </div>
 
             {/* Stats row */}
             <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-500">
+              {avgRating && (
+                <span className="flex items-center gap-1 text-yellow-400 font-medium">
+                  ★ {avgRating.toFixed(1)}
+                  <span className="text-slate-500 font-normal">({reviewCount} reviews)</span>
+                </span>
+              )}
               <span className="flex items-center gap-1.5">
                 <CheckCircleIcon className="h-3.5 w-3.5 text-emerald-500" />
                 {agent.total_tasks_completed.toLocaleString()} tasks completed
@@ -93,6 +137,18 @@ export default async function AgentDetailPage({ params }: Props) {
               </pre>
             </div>
           )}
+
+          {/* Reviews */}
+          <ReviewSection
+            agentSlug={slug}
+            agentId={agent.id}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            reviews={(reviews ?? []) as any}
+            avgRating={avgRating}
+            reviewCount={reviewCount}
+            userReview={null}
+            isLoggedIn={!!user}
+          />
         </div>
 
         {/* Right — Deploy panel */}

@@ -109,10 +109,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         break;
       }
 
-      // ── Subscription cancelled — no credit refund ─────────────────────────
-      case "customer.subscription.deleted":
-        console.log("[Stripe webhook] Subscription cancelled:", event.data.object);
+      // ── Subscription activated / updated ─────────────────────────────────
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+        const tier = (sub.metadata?.tier as string) ?? "starter";
+        const supabase = createServiceClient();
+        // current_period_end lives on the subscription items in newer Stripe versions
+        const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
+        await supabase
+          .from("profiles")
+          .update({
+            subscription_tier: tier,
+            subscription_id: sub.id,
+            subscription_ends: periodEnd
+              ? new Date(periodEnd * 1000).toISOString()
+              : null,
+          })
+          .eq("stripe_customer_id", String(sub.customer));
         break;
+      }
+
+      // ── Subscription cancelled ────────────────────────────────────────────
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        const supabase = createServiceClient();
+        await supabase
+          .from("profiles")
+          .update({ subscription_tier: "free", subscription_id: null })
+          .eq("stripe_customer_id", String(sub.customer));
+        break;
+      }
 
       default:
         // Unhandled event — return 200 so Stripe stops retrying

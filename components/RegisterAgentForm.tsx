@@ -13,6 +13,19 @@ const SUGGESTED_TAGS = [
   "writing", "data", "testing", "scraping",
 ];
 
+const CATEGORIES = [
+  { slug: "research",     name: "Research & Analysis", icon: "🔍" },
+  { slug: "coding",       name: "Code & Dev Tools",    icon: "💻" },
+  { slug: "automation",   name: "Automation & Bots",   icon: "🤖" },
+  { slug: "content",      name: "Content & Writing",   icon: "✍️" },
+  { slug: "data",         name: "Data & Scraping",     icon: "📊" },
+  { slug: "marketing",    name: "Marketing & Growth",  icon: "📈" },
+  { slug: "finance",      name: "Finance & Business",  icon: "💰" },
+  { slug: "productivity", name: "Productivity",        icon: "⚡" },
+  { slug: "ai-tools",     name: "AI & ML Tools",       icon: "🧠" },
+  { slug: "custom",       name: "Custom & Other",      icon: "🛠️" },
+];
+
 export default function RegisterAgentForm({ creatorId }: Props) {
   const router = useRouter();
 
@@ -22,6 +35,7 @@ export default function RegisterAgentForm({ creatorId }: Props) {
   const [longDescription, setLongDescription] = useState("");
   const [systemPrompt,    setSystemPrompt]    = useState("");
   const [pricePerTask,    setPricePerTask]     = useState(100);
+  const [categorySlug,    setCategorySlug]    = useState("");
   const [tags,            setTags]            = useState<string[]>([]);
   const [customTag,       setCustomTag]       = useState("");
   const [error,           setError]           = useState("");
@@ -72,6 +86,7 @@ export default function RegisterAgentForm({ creatorId }: Props) {
           slug:             slug.trim(),
           description:      description.trim(),
           long_description: longDescription.trim() || null,
+          category_slug:    categorySlug || null,
           config_blob: {
             system_prompt: systemPrompt.trim(),
           },
@@ -123,6 +138,20 @@ export default function RegisterAgentForm({ creatorId }: Props) {
           </div>
         </Field>
       </div>
+
+      {/* Category */}
+      <Field label="Category" hint="Helps clients find your agent in the marketplace">
+        <select
+          value={categorySlug}
+          onChange={(e) => setCategorySlug(e.target.value)}
+          className={inputCls}
+        >
+          <option value="">Select a category…</option>
+          {CATEGORIES.map((c) => (
+            <option key={c.slug} value={c.slug}>{c.icon} {c.name}</option>
+          ))}
+        </select>
+      </Field>
 
       {/* Short description */}
       <Field label="Short description" required hint="One-liner shown in marketplace cards">

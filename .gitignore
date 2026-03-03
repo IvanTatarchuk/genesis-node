@@ -34,3 +34,5 @@ Thumbs.db
 .cursor/
 .vscode/
 *.swp
+
+.vercel

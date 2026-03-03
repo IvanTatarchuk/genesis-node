@@ -3,22 +3,42 @@
 import Link from "next/link";
 import { BoltIcon, CheckCircleIcon, SparklesIcon } from "lucide-react";
 import type { Agent } from "@/lib/database.types";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 interface Props {
-  agent: Agent;
+  agent: Agent & {
+    is_verified?:     boolean;
+    health_status?:   string;
+    uptime_30d_pct?:  number | null;
+    avg_rating?:      number | null;
+    review_count?:    number;
+    is_boosted?:      boolean;
+  };
 }
 
 export default function AgentCard({ agent }: Props) {
-  const price = (agent.price_per_task / 100).toFixed(2);
+  const price = agent.price_per_task;
 
   return (
     <article className="group relative flex flex-col rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 transition hover:border-slate-700 hover:bg-slate-900/90 hover:shadow-xl hover:shadow-black/40">
-      {agent.is_featured && (
-        <span className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-indigo-600/20 border border-indigo-500/40 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
-          <SparklesIcon className="h-2.5 w-2.5" />
-          Featured
-        </span>
-      )}
+
+      {/* Badges row (top-right) */}
+      <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+        {agent.is_boosted && (
+          <span className="flex items-center gap-1 rounded-full bg-orange-500/20 border border-orange-500/40 px-2 py-0.5 text-[10px] font-semibold text-orange-300">
+            ⚡ Boosted
+          </span>
+        )}
+        {agent.is_featured && !agent.is_boosted && (
+          <span className="flex items-center gap-1 rounded-full bg-indigo-600/20 border border-indigo-500/40 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+            <SparklesIcon className="h-2.5 w-2.5" />
+            Featured
+          </span>
+        )}
+        {agent.is_verified && (
+          <VerifiedBadge uptime={agent.uptime_30d_pct} />
+        )}
+      </div>
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-4">
@@ -26,13 +46,19 @@ export default function AgentCard({ agent }: Props) {
           {agent.cover_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={agent.cover_image_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
-          ) : (
-            "🤖"
-          )}
+          ) : "🤖"}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 pr-16">
           <h3 className="font-semibold text-slate-100 truncate">{agent.name}</h3>
-          <p className="text-xs text-slate-500 truncate">@{agent.slug}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-slate-500 truncate">@{agent.slug}</p>
+            {agent.avg_rating && (
+              <span className="text-[10px] text-yellow-400 font-medium shrink-0">
+                ★ {Number(agent.avg_rating).toFixed(1)}
+                <span className="text-slate-600 font-normal ml-0.5">({agent.review_count ?? 0})</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -59,14 +85,23 @@ export default function AgentCard({ agent }: Props) {
       <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/80 pt-3 mt-auto">
         <span className="flex items-center gap-1">
           <CheckCircleIcon className="h-3.5 w-3.5 text-emerald-500" />
-          {agent.total_tasks_completed.toLocaleString()} tasks
+          {(agent.total_tasks_completed ?? 0).toLocaleString()} tasks
         </span>
-        {agent.avg_completion_seconds && (
-          <span>~{Math.round(agent.avg_completion_seconds / 60)}m avg</span>
+        {agent.health_status && agent.health_status !== "unknown" && (
+          <span className={`flex items-center gap-1 ${
+            agent.health_status === "healthy" ? "text-emerald-500" :
+            agent.health_status === "degraded" ? "text-yellow-500" : "text-red-500"
+          }`}>
+            <span className={`h-1.5 w-1.5 rounded-full inline-block ${
+              agent.health_status === "healthy" ? "bg-emerald-400 animate-pulse" :
+              agent.health_status === "degraded" ? "bg-yellow-400" : "bg-red-500"
+            }`} />
+            {agent.health_status}
+          </span>
         )}
         <span className="flex items-center gap-0.5 text-indigo-400 font-medium">
           <BoltIcon className="h-3 w-3" />
-          {price} credits / task
+          {price} cr
         </span>
       </div>
 

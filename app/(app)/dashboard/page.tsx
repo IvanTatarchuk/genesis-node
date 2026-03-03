@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import BuyCreditsButton from "@/components/BuyCreditsButton";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import ReferralCard from "@/components/ReferralCard";
+import StreakBadge from "@/components/StreakBadge";
 
 const STATUS_STYLE: Record<Task["status"], string> = {
   pending:   "text-slate-400  bg-slate-800/60  border-slate-700/60",
@@ -46,7 +48,7 @@ export default async function DashboardPage() {
       .limit(20),
     supabase
       .from("agents")
-      .select("id, name, slug, price_per_task, total_tasks_completed, is_active")
+      .select("id, name, slug, price_per_task, total_tasks_completed, total_earnings_credits, pending_payout_credits, is_active")
       .eq("creator_id", user.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -54,6 +56,18 @@ export default async function DashboardPage() {
   const profile = profileRes.data as unknown as Profile;
   const tasks   = (tasksRes.data   ?? []) as unknown as Task[];
   const agents  = (agentsRes.data  ?? []) as unknown as Agent[];
+
+  // Earnings totals (only for devs)
+  const totalEarnedCredits  = (profile as unknown as { total_earned_credits?: number })?.total_earned_credits ?? 0;
+  const totalPaidOut        = (profile as unknown as { total_paid_out_credits?: number })?.total_paid_out_credits ?? 0;
+  const pendingEarnings     = totalEarnedCredits - totalPaidOut;
+
+  // Referral + streak
+  const referralCode    = (profile as unknown as { referral_code?: string })?.referral_code ?? "";
+  const referralCount   = (profile as unknown as { referral_count?: number })?.referral_count ?? 0;
+  const referralEarned  = (profile as unknown as { referral_earned?: number })?.referral_earned ?? 0;
+  const currentStreak   = (profile as unknown as { current_streak?: number })?.current_streak ?? 0;
+  const longestStreak   = (profile as unknown as { longest_streak?: number })?.longest_streak ?? 0;
 
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const runningCount   = tasks.filter((t) => t.status === "running").length;
@@ -92,7 +106,50 @@ export default async function DashboardPage() {
         <StatCard label="Credits spent"    value={totalSpent.toLocaleString()} sub="total"        color="slate" />
       </div>
 
-      {/* Developer section — only shown for devs */}
+      {/* Developer earnings — only for devs */}
+      {profile?.role === "dev" && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-200">Earnings</h2>
+            <span className="text-xs text-slate-500">70% revenue share</span>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard
+              label="Total earned"
+              value={`$${(totalEarnedCredits / 100).toFixed(2)}`}
+              sub={`${totalEarnedCredits.toLocaleString()} credits`}
+              color="emerald"
+            />
+            <StatCard
+              label="Pending payout"
+              value={`$${(pendingEarnings / 100).toFixed(2)}`}
+              sub="paid weekly"
+              color="indigo"
+            />
+            <StatCard
+              label="Paid out"
+              value={`$${(totalPaidOut / 100).toFixed(2)}`}
+              sub="all time"
+              color="slate"
+            />
+          </div>
+          {pendingEarnings > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-800/50 bg-emerald-950/30 px-4 py-3">
+              <span className="text-emerald-400 text-lg">💰</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-emerald-300">
+                  ${(pendingEarnings / 100).toFixed(2)} waiting for payout
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Payouts are processed weekly. Make sure your Stripe Connect account is set up.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Developer agents section — only shown for devs */}
       {profile?.role === "dev" && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -125,9 +182,14 @@ export default async function DashboardPage() {
                     <span>{agent.total_tasks_completed} tasks</span>
                     <span className="flex items-center gap-0.5 text-indigo-400">
                       <BoltIcon className="h-3 w-3" />
-                      {agent.price_per_task} credits
+                      {agent.price_per_task} cr/task
                     </span>
                   </div>
+                  {((agent as unknown as { total_earnings_credits?: number }).total_earnings_credits ?? 0) > 0 && (
+                    <p className="text-[11px] text-emerald-400 font-medium">
+                      💰 ${(((agent as unknown as { total_earnings_credits?: number }).total_earnings_credits ?? 0) / 100).toFixed(2)} earned
+                    </p>
+                  )}
                   <Link
                     href={`/agents/${agent.slug}/edit`}
                     className="mt-1 text-center text-xs text-slate-500 hover:text-slate-300 transition"
@@ -140,6 +202,18 @@ export default async function DashboardPage() {
           )}
         </section>
       )}
+
+      {/* Referral + Streak sidebar section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {referralCode && (
+          <ReferralCard
+            referralCode={referralCode}
+            referralCount={referralCount}
+            referralEarned={referralEarned}
+          />
+        )}
+        <StreakBadge currentStreak={currentStreak} longestStreak={longestStreak} />
+      </div>
 
       {/* Recent tasks */}
       <section className="space-y-4">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BotIcon, LogOutIcon, PlusIcon, LayoutDashboardIcon, ShoppingBagIcon } from "lucide-react";
+import { BotIcon, PlusIcon, LayoutDashboardIcon, ShoppingBagIcon, SparklesIcon, TrophyIcon, KeyIcon, RocketIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/database.types";
 
@@ -42,6 +42,27 @@ export default function Navbar({ profile }: Props) {
             <ShoppingBagIcon className="h-3.5 w-3.5" />
             Marketplace
           </Link>
+          <Link
+            href="/pricing"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+          >
+            <SparklesIcon className="h-3.5 w-3.5" />
+            Pricing
+          </Link>
+          <Link
+            href="/become-developer"
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-700/40 bg-emerald-950/30 px-3 py-2 text-xs font-medium text-emerald-400 transition hover:border-emerald-600/60 hover:bg-emerald-900/30"
+          >
+            <RocketIcon className="h-3.5 w-3.5" />
+            Sell agent
+          </Link>
+          <Link
+            href="/leaderboard"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+          >
+            <TrophyIcon className="h-3.5 w-3.5" />
+            Leaderboard
+          </Link>
           {profile && (
             <Link
               href="/dashboard"
@@ -51,14 +72,37 @@ export default function Navbar({ profile }: Props) {
               Dashboard
             </Link>
           )}
-          {profile?.role === "dev" && (
+          {profile && (
             <Link
-              href="/agents/new"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-indigo-500/60 hover:bg-slate-800"
+              href="/api-keys"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
             >
-              <PlusIcon className="h-3.5 w-3.5 text-indigo-400" />
-              New agent
+              <KeyIcon className="h-3.5 w-3.5" />
+              API
             </Link>
+          )}
+          {profile?.role === "dev" && (
+            <>
+              <Link
+                href="/dashboard/analytics"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+              >
+                📊 Analytics
+              </Link>
+              <Link
+                href="/pipelines/new"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+              >
+                🔗 Pipeline
+              </Link>
+              <Link
+                href="/agents/new"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-indigo-500/60 hover:bg-slate-800"
+              >
+                <PlusIcon className="h-3.5 w-3.5 text-indigo-400" />
+                New agent
+              </Link>
+            </>
           )}
         </div>
 

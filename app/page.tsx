@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LiveDemoSection from "@/components/LiveDemoSection";
 
 export default function HomePage() {
   return (
@@ -126,6 +127,8 @@ export default function HomePage() {
             </div>
           </aside>
         </section>
+
+        <LiveDemoSection />
 
         <footer className="flex flex-col gap-3 border-t border-slate-900/80 pt-6 text-[11px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} AGENTS.DEV. All rights reserved.</p>

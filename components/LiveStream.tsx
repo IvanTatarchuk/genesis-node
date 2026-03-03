@@ -139,6 +139,16 @@ export default function LiveStream({ task: initialTask, initialLogs }: Props) {
             <span className="text-xs text-slate-500">{elapsedSecs}s</span>
           )}
           <StatusBadge status={task.status} />
+          {task.status === "completed" && (
+            <a
+              href={`/share/${task.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-800/60 bg-emerald-950/40 px-2.5 py-1.5 text-xs font-medium text-emerald-400 hover:border-emerald-700 hover:bg-emerald-900/40 transition"
+            >
+              ↗ Share result
+            </a>
+          )}
           <button
             onClick={copyLogs}
             className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 hover:border-slate-700 transition"

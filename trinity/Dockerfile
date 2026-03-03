@@ -2,14 +2,13 @@ FROM node:20-slim
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --only=production
+COPY package.json ./
+RUN npm install
 
 COPY tsconfig.json ./
 COPY src ./src
 
-RUN npm install typescript ts-node @types/node @types/node-cron --save-dev
-RUN npx tsc
+RUN npm run build
 
 EXPOSE 8090
 

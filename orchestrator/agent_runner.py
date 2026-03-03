@@ -1,6 +1,6 @@
 """
 Genesis Node — Agent Runner
-Executes a single task using Grok-3 + Playwright.
+Executes a single task using Claude (Sonnet) + Playwright.
 Logs every thought/action/result to Supabase logs table.
 """
 
@@ -12,33 +12,24 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from supabase import create_client, Client
-from openai import AsyncOpenAI          # xAI Grok-3 is OpenAI-compatible
+import anthropic
 from playwright.async_api import async_playwright, Page
 
 
-SUPABASE_URL  = os.environ["SUPABASE_URL"]
-SUPABASE_KEY  = os.environ["SUPABASE_SERVICE_KEY"]
-XAI_API_KEY   = os.environ["XAI_API_KEY"]
-MAX_STEPS     = int(os.getenv("MAX_STEPS", "20"))
-TIMEOUT_SECS  = int(os.getenv("TASK_TIMEOUT_SECONDS", "600"))
+SUPABASE_URL        = os.environ["SUPABASE_URL"]
+SUPABASE_KEY        = os.environ["SUPABASE_SERVICE_KEY"]
+ANTHROPIC_API_KEY   = os.environ["ANTHROPIC_API_KEY"]
+CLAUDE_MODEL        = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
+MAX_STEPS           = int(os.getenv("MAX_STEPS", "20"))
+TIMEOUT_SECS        = int(os.getenv("TASK_TIMEOUT_SECONDS", "600"))
 
 
 def supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def xai() -> AsyncOpenAI:
-    return AsyncOpenAI(
-        api_key=SUPABASE_URL,          # placeholder — real key below
-        base_url="https://api.x.ai/v1",
-    )
-
-
-def grok() -> AsyncOpenAI:
-    return AsyncOpenAI(
-        api_key=XAI_API_KEY,
-        base_url="https://api.x.ai/v1",
-    )
+def claude() -> anthropic.AsyncAnthropic:
+    return anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
 
 async def log(db: Client, task_id: str, log_type: str, content: str):
@@ -59,13 +50,13 @@ async def screenshot_base64(page: Page) -> str:
 async def run_task(task_id: str, goal: str, system_prompt: str):
     """
     Main agent loop:
-    1. Think (Grok-3 text)
+    1. Think (Claude text + vision)
     2. Act (Playwright browser actions)
-    3. Observe (screenshot → Grok-3 vision)
+    3. Observe (screenshot → Claude vision)
     4. Repeat until DONE or max steps
     """
     db = supabase()
-    ai = grok()
+    ai = claude()
 
     # Mark as running
     db.table("tasks").update({
@@ -75,9 +66,11 @@ async def run_task(task_id: str, goal: str, system_prompt: str):
 
     await log(db, task_id, "system", f"🚀 Agent started. Goal: {goal}")
 
+    full_system = system_prompt + AGENT_INSTRUCTIONS
+
+    # Anthropic uses system separately; conversation messages start with user
     messages = [
-        {"role": "system", "content": system_prompt + AGENT_INSTRUCTIONS},
-        {"role": "user",   "content": f"GOAL: {goal}"},
+        {"role": "user", "content": f"GOAL: {goal}"},
     ]
 
     result_text = ""
@@ -97,28 +90,33 @@ async def run_task(task_id: str, goal: str, system_prompt: str):
                 await log(db, task_id, "thought", f"Step {step + 1}/{MAX_STEPS} — thinking…")
 
                 # ── THINK ──────────────────────────────────────────────────
-                # Take screenshot for vision context
+                # Take screenshot for vision context (Claude supports vision natively)
                 try:
                     screenshot = await screenshot_base64(page)
-                    vision_msg = {
-                        "role": "user",
-                        "content": [
-                            {"type": "text",      "text": "Current browser state:"},
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{screenshot}"}},
-                        ],
-                    }
-                    think_messages = messages + [vision_msg]
+                    vision_content = [
+                        {"type": "text", "text": "Current browser state (screenshot):"},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": screenshot,
+                            },
+                        },
+                    ]
+                    think_messages = messages + [{"role": "user", "content": vision_content}]
                 except Exception:
                     think_messages = messages
 
-                response = await ai.chat.completions.create(
-                    model="grok-2-vision-1212",
-                    messages=think_messages,   # type: ignore
+                response = await ai.messages.create(
+                    model=CLAUDE_MODEL,
+                    system=full_system,
+                    messages=think_messages,
                     max_tokens=1024,
                     temperature=0.2,
                 )
 
-                thought = response.choices[0].message.content or ""
+                thought = response.content[0].text if response.content else ""
                 messages.append({"role": "assistant", "content": thought})
                 await log(db, task_id, "thought", thought)
 
@@ -168,7 +166,6 @@ def parse_action(thought: str) -> Optional[dict]:
         if "ACTION:" not in thought:
             return None
         raw = thought.split("ACTION:")[-1].strip()
-        # Find first {...}
         start = raw.index("{")
         end   = raw.rindex("}") + 1
         return json.loads(raw[start:end])

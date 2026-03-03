@@ -3,7 +3,7 @@ DARWIN AGENT — Genesis Node
 ════════════════════════════════════════════════════════════════
 The self-evolving agent that:
 1. Scans global trends every day (HackerNews, Reddit, Google Trends, Product Hunt)
-2. Uses Grok-3 to brainstorm 10 unique agent ideas based on what's hot
+2. Uses Claude (Sonnet) to brainstorm 10 unique agent ideas based on what's hot
 3. Auto-registers each agent on Genesis Node marketplace
 4. Each agent has: name, description, category, system_prompt, pricing
 5. Runs automatically every day at 06:00 UTC
@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 import httpx
 import feedparser
-from openai import AsyncOpenAI
+import anthropic
 from supabase import create_client, Client
 
 logging.basicConfig(
@@ -34,11 +34,12 @@ logging.basicConfig(
 log = logging.getLogger("darwin")
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SUPABASE_URL      = os.environ["SUPABASE_URL"]
-SUPABASE_KEY      = os.environ["SUPABASE_SERVICE_KEY"]
-XAI_API_KEY       = os.environ["XAI_API_KEY"]
-GENESIS_API_URL   = os.getenv("GENESIS_API_URL", "https://agents-dev-roan.vercel.app")
-AGENTS_PER_DAY    = int(os.getenv("AGENTS_PER_DAY", "10"))
+SUPABASE_URL        = os.environ["SUPABASE_URL"]
+SUPABASE_KEY        = os.environ["SUPABASE_SERVICE_KEY"]
+ANTHROPIC_API_KEY   = os.environ["ANTHROPIC_API_KEY"]
+CLAUDE_MODEL        = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
+GENESIS_API_URL     = os.getenv("GENESIS_API_URL", "https://agents-dev-roan.vercel.app")
+AGENTS_PER_DAY      = int(os.getenv("AGENTS_PER_DAY", "10"))
 
 DARWIN_USER_ID: str = ""  # resolved on startup
 
@@ -128,11 +129,8 @@ def db() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def grok() -> AsyncOpenAI:
-    return AsyncOpenAI(
-        api_key=XAI_API_KEY,
-        base_url="https://api.x.ai/v1",
-    )
+def claude() -> anthropic.AsyncAnthropic:
+    return anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
 
 # ── Trend Sources ─────────────────────────────────────────────────────────────
@@ -248,22 +246,22 @@ Make agents EXCITING. People should want to click "Deploy" immediately.
 
 
 async def generate_agents(trends: str) -> list[dict]:
-    """Ask Grok-3 to generate 10 agent ideas based on today's trends."""
-    log.info("🧬 Generating agent ideas with Grok-3…")
-    ai = grok()
+    """Ask Claude to generate 10 agent ideas based on today's trends."""
+    log.info("🧬 Generating agent ideas with Claude…")
+    ai = claude()
 
-    response = await ai.chat.completions.create(
-        model="grok-3-latest",
+    response = await ai.messages.create(
+        model=CLAUDE_MODEL,
+        system=DARWIN_SYSTEM,
         messages=[
-            {"role": "system", "content": DARWIN_SYSTEM},
-            {"role": "user",   "content": f"Today's trends:\n\n{trends}\n\nGenerate 10 agents JSON array:"},
+            {"role": "user", "content": f"Today's trends:\n\n{trends}\n\nGenerate 10 agents JSON array:"},
         ],
         max_tokens=4000,
         temperature=0.85,
     )
 
-    raw = response.choices[0].message.content or "[]"
-    log.info(f"🤖 Grok-3 response length: {len(raw)} chars")
+    raw = response.content[0].text if response.content else "[]"
+    log.info(f"🤖 Claude response length: {len(raw)} chars")
 
     # Extract JSON array
     try:
@@ -284,7 +282,7 @@ async def generate_agents(trends: str) -> list[dict]:
         except json.JSONDecodeError:
             pass
 
-    log.error("Failed to parse agent JSON from Grok-3 response")
+    log.error("Failed to parse agent JSON from Claude response")
     return []
 
 

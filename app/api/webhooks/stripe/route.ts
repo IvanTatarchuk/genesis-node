@@ -113,31 +113,52 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
+        const subType = (sub.metadata?.type as string) ?? "";
         const tier = (sub.metadata?.tier as string) ?? "starter";
         const supabase = createServiceClient();
-        // current_period_end lives on the subscription items in newer Stripe versions
         const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
-        await supabase
-          .from("profiles")
-          .update({
-            subscription_tier: tier,
-            subscription_id: sub.id,
-            subscription_ends: periodEnd
-              ? new Date(periodEnd * 1000).toISOString()
-              : null,
-          })
-          .eq("stripe_customer_id", String(sub.customer));
+        const periodEndIso = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+
+        if (subType === "trinity_viewer") {
+          // Trinity Viewer subscription
+          await supabase
+            .from("profiles")
+            .update({
+              trinity_viewer_active: sub.status === "active",
+              trinity_viewer_subscription_id: sub.id,
+              trinity_viewer_ends: periodEndIso,
+            })
+            .eq("stripe_customer_id", String(sub.customer));
+        } else {
+          await supabase
+            .from("profiles")
+            .update({
+              subscription_tier: tier,
+              subscription_id: sub.id,
+              subscription_ends: periodEndIso,
+            })
+            .eq("stripe_customer_id", String(sub.customer));
+        }
         break;
       }
 
       // ── Subscription cancelled ────────────────────────────────────────────
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
+        const subType = (sub.metadata?.type as string) ?? "";
         const supabase = createServiceClient();
-        await supabase
-          .from("profiles")
-          .update({ subscription_tier: "free", subscription_id: null })
-          .eq("stripe_customer_id", String(sub.customer));
+
+        if (subType === "trinity_viewer") {
+          await supabase
+            .from("profiles")
+            .update({ trinity_viewer_active: false, trinity_viewer_subscription_id: null })
+            .eq("stripe_customer_id", String(sub.customer));
+        } else {
+          await supabase
+            .from("profiles")
+            .update({ subscription_tier: "free", subscription_id: null })
+            .eq("stripe_customer_id", String(sub.customer));
+        }
         break;
       }
 

@@ -202,6 +202,29 @@ export default async function TrinityPage() {
         </div>
       </div>
 
+      {/* Trinity Viewer upsell */}
+      <div className="mb-8 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">👁</span>
+              <span className="font-bold text-white text-sm">Trinity Viewer — Ексклюзивний стрім</span>
+              <span className="rounded-full bg-violet-500/20 text-violet-300 text-[10px] font-medium px-2 py-0.5">NEW</span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-lg">
+              Підпишись і дивись живий термінал агентів — кожна думка, кожен рядок коду,
+              кожне рішення в реальному часі. Спостерігай як платформа будується сама.
+            </p>
+          </div>
+          <a
+            href="/trinity-watch"
+            className="shrink-0 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-5 py-2.5 transition-colors"
+          >
+            Дивитись — $33.3/міс →
+          </a>
+        </div>
+      </div>
+
       {/* Live updates component */}
       <TrinityLive />
     </div>

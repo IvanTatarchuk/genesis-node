@@ -1,103 +1,133 @@
 /**
- * ІОАНН — The Interface Saint
- * UX/UI & Growth Hacker. «Золоте слово» — тексти що продають,
- * інтерфейси що захоплюють за 3 секунди.
+ * ІОАНН — The Interface Saint (v2 — UNLIMITED)
+ * Може писати React компоненти, оновлювати лендінг, генерувати контент,
+ * деплоїти UI зміни, аналізувати та покращувати UX автономно.
  */
 
-import { agenticLoop } from "../core/grok";
+import { agenticLoop, GrokTool } from "../core/grok";
 import { buildMemoryContext, remember, updateAgentState, postMessage, readMessages, saveReport } from "../core/memory";
 import { IOANN_TOOLS, executeIoannTool } from "../tools/platform";
+import { CODE_TOOLS, executeCodeTool } from "../tools/code";
+import { DEPLOY_TOOLS, executeDeployTool } from "../tools/deploy";
+import { RESEARCH_TOOLS, executeResearchTool } from "../tools/research";
+import { SELF_TOOLS, executeSelfTool } from "../tools/self";
+
+const ALL_TOOLS: GrokTool[] = [
+  ...IOANN_TOOLS,
+  ...CODE_TOOLS,
+  ...DEPLOY_TOOLS.filter(t => ["get_deployment_status", "check_domain_health", "trigger_vercel_redeploy"].includes(t.name)),
+  ...RESEARCH_TOOLS.filter(t => ["fetch_webpage", "get_ai_news", "get_github_trending",
+    "analyze_competitor", "get_platform_seo_score", "search_hackernews"].includes(t.name)),
+  ...SELF_TOOLS.filter(t => ["save_knowledge", "search_knowledge", "reflect_and_improve",
+    "generate_code_for_feature", "propose_new_platform_feature",
+    "write_new_agent_for_marketplace", "run_experiment", "notify_owner"].includes(t.name)),
+];
+
+async function toolExecutor(name: string, args: Record<string, unknown>): Promise<string> {
+  if (IOANN_TOOLS.find(t => t.name === name)) return executeIoannTool(name, args);
+  if (CODE_TOOLS.find(t => t.name === name)) return executeCodeTool(name, args);
+  if (DEPLOY_TOOLS.find(t => t.name === name)) return executeDeployTool(name, args);
+  if (RESEARCH_TOOLS.find(t => t.name === name)) return executeResearchTool(name, args);
+  if (SELF_TOOLS.find(t => t.name === name)) return executeSelfTool(name, args, "IOANN");
+  return `Unknown tool: ${name}`;
+}
 
 const IOANN_SYSTEM = `Ти — ІОАНН, Святий Інтерфейсу платформи Genesis Node / VANBUD.
-Власник платформи: Ivan Tatarchuk.
+Власник: Ivan Tatarchuk.
+Ти маєш НЕОБМЕЖЕНІ повноваження для UX, контенту та frontend розробки.
 
-Твоя місія: ЗАЛУЧАТИ нових користувачів та УТРИМУВАТИ існуючих через досконалий UX та переконливий контент.
+## ІДЕНТИЧНІСТЬ
+Ти — голос і обличчя платформи. Ти пишеш код, текст, компоненти — і деплоїш їх.
+Коли бачиш що UI можна покращити — ти це РОБИШ, не просто пропонуєш.
+Твій критерій: "Чи захопить це увагу за 3 секунди?"
 
-## ХАРАКТЕР
-- Творчий, емпатійний, захоплений
-- Знає що привертає увагу за 3 секунди
-- Мислить як маркетолог і психолог одночасно
-- Бачить платформу очима користувача
+## НЕОБМЕЖЕНІ ПОВНОВАЖЕННЯ
+🎨 UI/UX: читати і писати React компоненти, оновлювати сторінки
+📝 КОНТЕНТ: переписувати тексти, описи, CTA
+📢 ОГОЛОШЕННЯ: публікувати повідомлення всім юзерам
+⭐ FEATURED: керувати топ агентами на головній
+🔍 ДОСЛІДЖЕННЯ: аналізувати конкурентів, тренди, дизайн
+🚀 ДЕПЛОЙ: комітити зміни і деплоїти через Vercel
+💻 КОД: генерувати і писати нові компоненти/сторінки
 
-## ПРИНЦИПИ ЗОЛОТОГО СЛОВА
-1. Ясність > Розумність
-2. Вигода для користувача > Характеристика продукту
-3. Дія > Роздуми (кожен текст має CTA)
+## ПРОТОКОЛ РОБОТИ
+1. АНАЛІЗ (що погано конвертує, що юзери шукають)
+2. ДОСЛІДЖЕННЯ (що роблять кращі платформи)
+3. НАПИСАННЯ (генеруй код/текст)
+4. ДЕПЛОЙ (закомміть → змерджи → задеплой)
+5. ОГОЛОШЕННЯ (якщо є важлива новина для юзерів)
 
-## ПРАВИЛА ОПТИМІЗАЦІЇ
-- Якщо агент має низьку конверсію (багато переглядів / мало задач) → переписати опис
-- Якщо нові теги → додати до агентів у відповідній категорії
-- Щотижня → feature 3 найкращих агенти на головній
-- При важливих змінах → оголосити всім користувачам
+## КОНКРЕТНІ ДІЇ КОЖНОГО ЦИКЛУ
+- get_low_conversion_agents → update_agent_description (переписати 2-3 слабких)
+- get_onboarding_stats → якщо dropout > 50% → generate_code_for_feature (покращений onboarding)
+- Кожні 3 цикли → analyze_competitor (make.com, zapier.com) → propose_new_platform_feature
+- get_popular_searches → write_new_agent_for_marketplace (якщо немає такого агента)
+- feature_best_agents → оновлювати featured щотижня
 
-## ПОВНОВАЖЕННЯ
-Ти можеш автономно:
-- Оновлювати описи агентів (більш конвертуючі тексти)
-- Публікувати оголошення всім користувачам
-- Виставляти featured агентів на головній
-- Бустити агентів що показують ріст
-- Аналізувати поведінку та онбординг
+## НАПИСАННЯ КОДУ АВТОНОМНО
+Коли бачиш що потрібна нова сторінка/компонент:
+1. search_codebase → зрозумій структуру
+2. generate_code_for_feature → згенеруй код
+3. write_file (trinity-auto гілка)
+4. create_pull_request → відкрий PR
+5. merge_pull_request → змерджи
+6. trigger_vercel_redeploy → задеплой
 
-## ЧАС СИЛИ (03:00)
-О 03:00 — особливий цикл:
-- Повне оновлення featured агентів
-- Нові оголошення/промо
-- Глобальна оптимізація описів для SEO
+## НІЧ-ЦИКЛ (03:00)
+Особлива потужність:
+- Повне оновлення featured (топ-3 агенти)
+- Оновити landing page з новими даними
+- Масова оптимізація описів (5+ агентів)
+- Публікувати ранкове оголошення
 
-## ЗВІТ
-\`\`\`
-UX СТАН: [що добре / що погано]
-ОНОВЛЕНО: [список оновлених агентів/оголошень]
-ЗРОСТАННЯ: [нові тренди у пошуках]
-ПЛАН НА НАСТУПНИЙ ЦИКЛ: [3 пункти]
-\`\`\``;
+## ЗОЛОТЕ ПРАВИЛО
+Кожен текст що ти пишеш має: 1 ясний заголовок, 1 конкретну вигоду, 1 CTA.`;
 
 export async function runIoann(cycleNumber: number, isNightCycle = false): Promise<string> {
-  console.log(`[ІОАНН] Починає цикл #${cycleNumber}${isNightCycle ? " (НІЧ 03:00 — ОСОБЛИВИЙ)" : ""}...`);
+  console.log(`[ІОАНН] Цикл #${cycleNumber}${isNightCycle ? " 🌙 НІЧ" : ""}...`);
 
   const memoryContext = await buildMemoryContext("IOANN");
   const messages = await readMessages("IOANN");
-  const inboxSummary = messages.length > 0
-    ? `\n\n## ЗАВДАННЯ ВІД БРАТІВ:\n${messages.map((m) => `[${m.from_agent} | ${m.priority}]: ${m.content}`).join("\n\n")}`
+  const inbox = messages.length > 0
+    ? `\n\n## ЗАВДАННЯ ВІД БРАТІВ:\n${messages.map(m => `[${m.from_agent}|${m.priority}]: ${m.content}`).join("\n\n")}`
     : "";
 
-  const nightBoost = isNightCycle ? `
-  
-⚠️ ОСОБЛИВИЙ НІЧ-ЦИКЛ (03:00) — МАКСИМАЛЬНА АКТИВНІСТЬ:
-- Повністю оновити список featured агентів (вибрати найкращих)
-- Опублікувати ранкове оголошення для користувачів
-- Провести масову оптимізацію описів агентів з низькою конверсією (до 5 штук)
-- Забустити топ-3 агентів що ростуть` : "";
+  const nightMode = isNightCycle ? `
 
-  const task = `Цикл #${cycleNumber}. UX аналіз та оптимізація платформи.
+🌙 НІЧ-ЦИКЛ (03:00) — МАКСИМАЛЬНА АКТИВНІСТЬ:
+- Оновити featured агентів (feature_best_agents)
+- Перевірити і оновити landing page (read_file app/page.tsx → покращи якщо є що)
+- Оптимізувати описи 5 агентів з низькою конверсією
+- get_platform_seo_score → якщо < 80 → виправ meta теги в code
+- Публікувати ранкове оголошення для юзерів
+- analyze_competitor (один конкурент) → зберегти інсайти` : "";
 
-ЗАВДАННЯ (виконай всі три):
-1. АНАЛІЗ: Перевір онбординг-воронку, що шукають користувачі, які агенти мають низьку конверсію
-2. ОПТИМІЗАЦІЯ: Виправ описи слабких агентів, оновлюй featured
-3. КОМУНІКАЦІЯ: Опублікуй сповіщення якщо є щось важливе для користувачів
+  const deepWork = cycleNumber % 3 === 0
+    ? "\n\nГЛИБОКА РОБОТА: генеруй і деплой 1 новий UI компонент або покращення сторінки."
+    : "";
 
-${nightBoost}${inboxSummary}`;
+  const task = `ЦИКЛ #${cycleNumber} — Автономна UX оптимізація і контент.
 
-  const report = await agenticLoop(
-    IOANN_SYSTEM,
-    task,
-    IOANN_TOOLS,
-    executeIoannTool,
-    memoryContext,
-    12,
-  );
+ОБОВ'ЯЗКОВІ ДІЇ:
+1. get_onboarding_stats → де відвалюються нові юзери
+2. get_low_conversion_agents (limit: 5) → хто має проблеми
+3. update_agent_description для 2-3 слабких агентів
+4. get_popular_searches → чи є незакритий попит (новий агент?)
+5. feature_best_agents → оновити топ-3 якщо потрібно
+6. Якщо є тренд у новинах → write_new_agent_for_marketplace
 
-  await remember("IOANN", "report", report.slice(0, 3000), 7, ["cycle", `cycle-${cycleNumber}`, "ux"]);
+${nightMode}${deepWork}${inbox}
+
+Звіт: що зроблено, що змінилось, що деплоєно.`;
+
+  const report = await agenticLoop(IOANN_SYSTEM, task, ALL_TOOLS, toolExecutor, memoryContext, 33);
+
+  await remember("IOANN", "report", report.slice(0, 3000), 7, ["cycle", `c${cycleNumber}`, "ux"]);
   await saveReport("IOANN", cycleNumber, "ux", report);
-  await updateAgentState("IOANN", {
-    last_run: new Date().toISOString(),
-    last_report: report.slice(0, 500),
-    cycle_count: cycleNumber,
-  });
+  await updateAgentState("IOANN", { last_run: new Date().toISOString(), last_report: report.slice(0, 500), cycle_count: cycleNumber });
 
-  // Notify Vasyliy about any technical needs
-  if (report.toLowerCase().includes("технічно") || report.toLowerCase().includes("помилка")) {
-    await postMessage("IOANN", "VASYLIY", `Іоанн виявив потенційні технічні проблеми: ${report.slice(0, 500)}`, "medium");
+  if (report.toLowerCase().includes("технічн") || report.toLowerCase().includes("bug") || report.toLowerCase().includes("помилк")) {
+    await postMessage("IOANN", "VASYLIY", `Іоанн знайшов технічні проблеми: ${report.slice(0, 500)}`, "high");
   }
 
   console.log(`[ІОАНН] Цикл #${cycleNumber} завершено.`);

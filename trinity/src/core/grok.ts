@@ -11,7 +11,7 @@ import OpenAI from "openai";
 const USE_OLLAMA = !!process.env.OLLAMA_URL;
 const raw = (process.env.OLLAMA_URL ?? "").replace(/\/$/, "");
 const OLLAMA_BASE = raw.endsWith("/v1") ? raw : `${raw}/v1`;
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.2:3b";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:0.5b";
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-5";
 
 const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });

@@ -158,7 +158,7 @@ export const SELF_TOOLS: GrokTool[] = [
 // ── Knowledge base schema ──────────────────────────────────────────────────────
 
 export async function ensureKnowledgeBase(): Promise<void> {
-  await sb().rpc("create_knowledge_table_if_not_exists").catch(() => null);
+  try { await sb().rpc("create_knowledge_table_if_not_exists"); } catch { /* ignore */ }
 }
 
 // ── Executors ──────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { CpuChipIcon, SparklesIcon, ShieldCheckIcon, ChartBarIcon, PaintBrushIcon } from "lucide-react";
+import { Cpu as CpuChipIcon, Sparkles as SparklesIcon, ShieldCheck as ShieldCheckIcon, BarChart2 as ChartBarIcon, Paintbrush as PaintBrushIcon } from "lucide-react";
 import TrinityLive from "@/components/TrinityLive";
 
 export const revalidate = 0;

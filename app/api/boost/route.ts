@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     .from("agents")
     .select("id, creator_id")
     .eq("slug", agentSlug)
-    .single();
+    .single() as { data: { id: string; creator_id: string } | null };
 
   if (!agent || agent.creator_id !== user.id) {
     return NextResponse.json({ error: "Agent not found or not yours" }, { status: 403 });
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     .from("profiles")
     .select("balance")
     .eq("id", user.id)
-    .single();
+    .single() as { data: { balance: number } | null };
 
   if (!profile || profile.balance < boost.credits) {
     return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
@@ -45,15 +45,17 @@ export async function POST(req: NextRequest) {
   boostUntil.setDate(boostUntil.getDate() + boost.days);
 
   // Deduct credits and activate boost
-  await sb.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
-  await sb.from("agents").update({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sba = sb as any;
+  await sba.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
+  await sba.from("agents").update({
     is_boosted: true,
     boost_ends_at: boostUntil.toISOString(),
     is_featured: true,
   }).eq("id", agent.id);
 
   // Credit transaction log
-  await sb.from("credit_transactions").insert({
+  await sba.from("credit_transactions").insert({
     user_id: user.id,
     amount: -boost.credits,
     type: "boost",

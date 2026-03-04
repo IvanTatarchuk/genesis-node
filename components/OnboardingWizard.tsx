@@ -4,14 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import {
-  CpuChipIcon,
-  CodeBracketIcon,
-  BoltIcon,
-  ShoppingBagIcon,
-  CheckCircle2Icon,
-  ArrowRightIcon,
-  SparklesIcon,
+  Cpu as CpuChipIcon,
+  Code2 as CodeBracketIcon,
+  Zap as BoltIcon,
+  ShoppingBag as ShoppingBagIcon,
+  CheckCircle2,
+  ArrowRight as ArrowRightIcon,
+  Sparkles as SparklesIcon,
 } from "lucide-react";
+const CheckCircle2Icon = CheckCircle2;
 
 type Role = "client" | "dev";
 
@@ -27,7 +28,8 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
   async function finishOnboarding() {
     setSaving(true);
     // Mark onboarding as done
-    await sb
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (sb as any)
       .from("profiles")
       .update({ onboarding_done: true, role: role ?? "client" })
       .eq("id", userId);

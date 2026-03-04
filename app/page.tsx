@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
-import { BoltIcon, SparklesIcon, UsersIcon, CpuChipIcon } from "lucide-react";
+import { Zap as BoltIcon, Sparkles as SparklesIcon, Users as UsersIcon, Cpu as CpuChipIcon } from "lucide-react";
 import LiveDemoSection from "@/components/LiveDemoSection";
 
 async function getLiveStats() {

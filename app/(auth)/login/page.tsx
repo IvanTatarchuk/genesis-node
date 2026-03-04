@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase";
-import { BotIcon, ChromeIcon } from "lucide-react";
+import { BotIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 

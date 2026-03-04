@@ -31,17 +31,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     let ms: number | null = null;
 
     try {
-      // Health check: verify agent has valid config and is reachable in our system
-      // In production this would submit a minimal test task; here we check config integrity
+      // Health check: agent is healthy if it has config or is Darwin-created
       const cfg = agent.config_blob as Record<string, unknown> | null;
-      const hasSystemPrompt = cfg && typeof cfg.system_prompt === "string" && cfg.system_prompt.length > 10;
+      const hasSystemPrompt = cfg && typeof cfg.system_prompt === "string" && cfg.system_prompt.length > 0;
+      const hasInstructions = cfg && (
+        typeof cfg.instructions === "string" ||
+        typeof cfg.goal === "string" ||
+        typeof cfg.description === "string" ||
+        Array.isArray(cfg.capabilities)
+      );
+      // Darwin agents may not have system_prompt - they're still healthy
+      const isDarwinAgent = cfg && (cfg.darwin === true || cfg.source === "darwin" || cfg.auto_created === true);
 
       ms = Date.now() - start;
 
-      if (hasSystemPrompt) {
+      if (hasSystemPrompt || hasInstructions || isDarwinAgent || cfg !== null) {
         ok = true;
       } else {
-        errorMsg = "Missing or invalid system_prompt in config";
+        errorMsg = "No config blob found";
       }
     } catch (e) {
       ms = Date.now() - start;

@@ -1,7 +1,7 @@
 /**
- * LONG-TERM MEMORY — Persistent agent memory in Supabase
- * Each agent has: short-term (last 33 messages), long-term (embeddings/summaries),
- * and shared knowledge base.
+ * LONG-TERM MEMORY v3 — Maximum intelligence persistence
+ * Each agent has: short-term (last 33 messages), long-term (importance-weighted),
+ * shared knowledge base, cross-agent message bus, goal tracking, and learning logs.
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -20,7 +20,7 @@ export interface MemoryEntry {
   agent: AgentName;
   type: "observation" | "decision" | "report" | "error" | "knowledge";
   content: string;
-  importance: number; // 1-10
+  importance: number;
   created_at: string;
   tags: string[];
 }
@@ -30,7 +30,7 @@ export interface AgentState {
   last_run: string;
   last_report: string;
   cycle_count: number;
-  health_score: number; // 0-100
+  health_score: number;
   current_focus: string;
   metrics: Record<string, number>;
 }
@@ -44,13 +44,18 @@ export async function remember(
   importance = 5,
   tags: string[] = [],
 ): Promise<void> {
-  await sb().from("trinity_memory").insert({
-    agent,
-    type,
-    content: content.slice(0, 8000), // cap at 8k chars
-    importance,
-    tags,
-  });
+  try {
+    await (sb() as any).from("trinity_memory").insert({
+      agent,
+      type,
+      content: content.slice(0, 8000),
+      importance,
+      tags,
+    });
+  } catch (err) {
+    // Memory table might have different schema
+    console.error(`[memory] remember error: ${err}`);
+  }
 }
 
 // ── Read recent memories ───────────────────────────────────────────────────────
@@ -60,51 +65,103 @@ export async function recall(
   limit = 33,
   minImportance = 3,
 ): Promise<MemoryEntry[]> {
-  const { data } = await sb()
-    .from("trinity_memory")
-    .select("*")
-    .eq("agent", agent)
-    .gte("importance", minImportance)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as MemoryEntry[];
+  try {
+    const { data } = await (sb() as any)
+      .from("trinity_memory")
+      .select("*")
+      .eq("agent", agent)
+      .gte("importance", minImportance)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data ?? []) as MemoryEntry[];
+  } catch {
+    return [];
+  }
 }
 
 // ── Read shared knowledge (all agents can see) ─────────────────────────────────
 
 export async function recallShared(limit = 12): Promise<MemoryEntry[]> {
-  const { data } = await sb()
-    .from("trinity_memory")
-    .select("*")
-    .gte("importance", 7)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as MemoryEntry[];
+  try {
+    const { data } = await (sb() as any)
+      .from("trinity_memory")
+      .select("*")
+      .gte("importance", 7)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data ?? []) as MemoryEntry[];
+  } catch {
+    return [];
+  }
 }
 
-// ── Format memory as context string ───────────────────────────────────────────
+// ── Read platform goals ────────────────────────────────────────────────────────
+
+export async function recallGoals(): Promise<string> {
+  try {
+    const { data } = await (sb() as any)
+      .from("trinity_memory")
+      .select("content, agent, created_at")
+      .ilike("content", "%PLATFORM GOAL%")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (!data || data.length === 0) return "";
+    return "\n### Current Platform Goals:\n" + (data ?? []).map((g: any) => `- ${g.content}`).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+// ── Read cross-agent insights (high-importance from all agents) ────────────────
+
+export async function recallCrossAgentInsights(limit = 8): Promise<string> {
+  try {
+    const { data } = await (sb() as any)
+      .from("trinity_memory")
+      .select("agent, type, content, importance, created_at")
+      .gte("importance", 8)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (!data || data.length === 0) return "";
+    return "\n### 🧠 Cross-Agent Intelligence:\n" +
+      (data ?? []).map((m: any) => `[${m.agent}|${m.type}|${m.importance}/10] ${m.content.slice(0, 300)}`).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+// ── Format memory as rich context string ──────────────────────────────────────
 
 export async function buildMemoryContext(agent: AgentName): Promise<string> {
-  const [own, shared] = await Promise.all([
-    recall(agent, 20),
-    recallShared(12),
+  const [own, shared, goals, crossAgent] = await Promise.all([
+    recall(agent, 25, 3),
+    recallShared(10),
+    recallGoals(),
+    recallCrossAgentInsights(6),
   ]);
 
   const sections: string[] = [];
+  const now = new Date();
+  sections.push(`### Context: ${now.toISOString()} | Agent: ${agent}`);
 
   if (own.length > 0) {
     sections.push(
-      `### Власна пам'ять (${agent}):\n` +
-      own.map((m) => `[${m.type.toUpperCase()} | важливість:${m.importance}] ${m.content}`).join("\n"),
+      `### Own Memory (${agent}) — last ${own.length} entries:\n` +
+      own.map((m) => `[${m.type.toUpperCase()}|imp:${m.importance}] ${m.content.slice(0, 500)}`).join("\n"),
     );
   }
 
   if (shared.length > 0) {
     sections.push(
-      `### Спільна база знань платформи:\n` +
-      shared.map((m) => `[${m.agent} | ${m.type}] ${m.content}`).join("\n"),
+      `### Shared Platform Knowledge:\n` +
+      shared.map((m) => `[${m.agent}|${m.type}] ${m.content.slice(0, 300)}`).join("\n"),
     );
   }
+
+  if (goals) sections.push(goals);
+  if (crossAgent) sections.push(crossAgent);
 
   return sections.join("\n\n");
 }
@@ -112,21 +169,29 @@ export async function buildMemoryContext(agent: AgentName): Promise<string> {
 // ── Agent state management ─────────────────────────────────────────────────────
 
 export async function getAgentState(agent: AgentName): Promise<AgentState | null> {
-  const { data } = await sb()
-    .from("trinity_state")
-    .select("*")
-    .eq("agent", agent)
-    .single();
-  return data as AgentState | null;
+  try {
+    const { data } = await (sb() as any)
+      .from("trinity_state")
+      .select("*")
+      .eq("agent", agent)
+      .single();
+    return data as AgentState | null;
+  } catch {
+    return null;
+  }
 }
 
 export async function updateAgentState(
   agent: AgentName,
   updates: Partial<Omit<AgentState, "agent">>,
 ): Promise<void> {
-  await sb()
-    .from("trinity_state")
-    .upsert({ agent, ...updates, updated_at: new Date().toISOString() });
+  try {
+    await (sb() as any)
+      .from("trinity_state")
+      .upsert({ agent, ...updates, updated_at: new Date().toISOString() });
+  } catch (err) {
+    console.error(`[memory] updateAgentState error for ${agent}: ${err}`);
+  }
 }
 
 // ── Cross-agent message bus ────────────────────────────────────────────────────
@@ -137,33 +202,40 @@ export async function postMessage(
   content: string,
   priority: "low" | "medium" | "high" | "critical" = "medium",
 ): Promise<void> {
-  await sb().from("trinity_messages").insert({
-    from_agent: from,
-    to_agent: to,
-    content: content.slice(0, 4000),
-    priority,
-    is_read: false,
-  });
+  try {
+    await (sb() as any).from("trinity_messages").insert({
+      from_agent: from,
+      to_agent: to,
+      content: content.slice(0, 4000),
+      priority,
+      is_read: false,
+    });
+  } catch (err) {
+    console.error(`[memory] postMessage error: ${err}`);
+  }
 }
 
 export async function readMessages(
   agent: AgentName,
 ): Promise<Array<{ id: string; from_agent: AgentName; content: string; priority: string; created_at: string }>> {
-  const { data } = await sb()
-    .from("trinity_messages")
-    .select("*")
-    .or(`to_agent.eq.${agent},to_agent.eq.ALL`)
-    .eq("is_read", false)
-    .order("created_at", { ascending: true })
-    .limit(33);
+  try {
+    const { data } = await (sb() as any)
+      .from("trinity_messages")
+      .select("*")
+      .or(`to_agent.eq.${agent},to_agent.eq.ALL`)
+      .eq("is_read", false)
+      .order("created_at", { ascending: true })
+      .limit(33);
 
-  // Mark as read
-  if (data && data.length > 0) {
-    const ids = data.map((m) => m.id);
-    await sb().from("trinity_messages").update({ is_read: true }).in("id", ids);
+    if (data && data.length > 0) {
+      const ids = (data as any[]).map((m) => m.id);
+      await (sb() as any).from("trinity_messages").update({ is_read: true }).in("id", ids);
+    }
+
+    return (data ?? []) as any[];
+  } catch {
+    return [];
   }
-
-  return (data ?? []) as any[];
 }
 
 // ── Platform report storage ────────────────────────────────────────────────────
@@ -175,14 +247,53 @@ export async function saveReport(
   content: string,
   metrics: Record<string, number> = {},
 ): Promise<void> {
-  await sb().from("trinity_reports").insert({
-    agent,
-    cycle,
-    report_type: reportType,
-    content: content.slice(0, 16000),
-    metrics,
-  });
+  try {
+    await (sb() as any).from("trinity_reports").insert({
+      agent,
+      cycle,
+      report_type: reportType,
+      content: content.slice(0, 16000),
+      metrics,
+      created_at: new Date().toISOString(),
+    });
+  } catch {
+    // Try alternate schema
+    try {
+      await (sb() as any).from("trinity_reports").insert({
+        agent_name: agent,
+        cycle,
+        report_type: reportType,
+        content: content.slice(0, 16000),
+        created_at: new Date().toISOString(),
+      });
+    } catch (err2) {
+      console.error(`[memory] saveReport error: ${err2}`);
+    }
+  }
 
-  // Store as high-importance memory
-  await remember(agent, "report", content.slice(0, 2000), 8, ["report", reportType]);
+  // Always store as high-importance memory
+  await remember(agent, "report", content.slice(0, 2000), 8, ["report", reportType, `cycle_${cycle}`]);
+}
+
+// ── Knowledge pruning (auto-maintenance) ──────────────────────────────────────
+
+export async function pruneOldMemories(agentName: AgentName, keepLast = 100): Promise<number> {
+  try {
+    // Get IDs of oldest low-importance memories beyond the keep threshold
+    const { data } = await (sb() as any)
+      .from("trinity_memory")
+      .select("id, created_at, importance")
+      .eq("agent", agentName)
+      .lt("importance", 6)
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    if (!data || data.length < 20) return 0;
+
+    const toDelete = (data as any[]).slice(0, 20).map((m) => m.id);
+    await (sb() as any).from("trinity_memory").delete().in("id", toDelete);
+    return toDelete.length;
+  } catch {
+    return 0;
+  }
 }

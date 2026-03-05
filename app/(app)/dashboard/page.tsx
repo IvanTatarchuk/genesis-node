@@ -2,35 +2,13 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Profile, Task, Agent } from "@/lib/database.types";
-import {
-  BoltIcon,
-  PlusIcon,
-  CheckCircle2Icon,
-  ClockIcon,
-  XCircleIcon,
-  LoaderIcon,
-  ArrowRightIcon,
-} from "lucide-react";
+import { Zap as BoltIcon, Plus as PlusIcon, ArrowRight as ArrowRightIcon } from "lucide-react";
 import BuyCreditsButton from "@/components/BuyCreditsButton";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import ReferralCard from "@/components/ReferralCard";
 import StreakBadge from "@/components/StreakBadge";
-
-const STATUS_STYLE: Record<Task["status"], string> = {
-  pending:   "text-slate-400  bg-slate-800/60  border-slate-700/60",
-  running:   "text-sky-400    bg-sky-900/20    border-sky-800/60",
-  completed: "text-emerald-400 bg-emerald-900/20 border-emerald-800/60",
-  failed:    "text-red-400    bg-red-900/20    border-red-800/60",
-  cancelled: "text-slate-500  bg-slate-900/60  border-slate-800",
-};
-
-const STATUS_ICON: Record<Task["status"], React.ReactNode> = {
-  pending:   <ClockIcon className="h-3 w-3" />,
-  running:   <LoaderIcon className="h-3 w-3 animate-spin" />,
-  completed: <CheckCircle2Icon className="h-3 w-3" />,
-  failed:    <XCircleIcon className="h-3 w-3" />,
-  cancelled: <XCircleIcon className="h-3 w-3" />,
-};
+import TaskList from "@/components/TaskList";
+import ScheduleManager from "@/components/ScheduleManager";
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -203,6 +181,16 @@ export default async function DashboardPage() {
         </section>
       )}
 
+      {/* Scheduled Tasks */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+        <ScheduleManager agents={agents.map((a) => ({
+          id:             a.id,
+          name:           a.name,
+          slug:           a.slug ?? "",
+          price_per_task: a.price_per_task,
+        }))} />
+      </section>
+
       {/* Referral + Streak sidebar section */}
       <div className="grid gap-4 md:grid-cols-2">
         {referralCode && (
@@ -217,44 +205,13 @@ export default async function DashboardPage() {
 
       {/* Recent tasks */}
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-slate-200">Recent Tasks</h2>
-        {tasks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center">
-            <p className="text-sm text-slate-500">No tasks yet.</p>
-            <Link href="/marketplace" className="mt-3 inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition">
-              Browse agents <ArrowRightIcon className="h-3 w-3" />
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {tasks.map((task) => (
-              <Link
-                key={task.id}
-                href={`/tasks/${task.id}`}
-                className="flex items-center gap-4 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 transition hover:border-slate-700 hover:bg-slate-900 group"
-              >
-                <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium shrink-0 ${STATUS_STYLE[task.status]}`}>
-                  {STATUS_ICON[task.status]}
-                  {task.status}
-                </span>
-                <p className="flex-1 truncate text-sm text-slate-300 group-hover:text-slate-100 transition">
-                  {task.goal}
-                </p>
-                <div className="shrink-0 text-right">
-                  <p className="text-[11px] text-slate-500">
-                    {new Date(task.created_at).toLocaleDateString()}
-                  </p>
-                  {task.credits_charged > 0 && (
-                    <p className="text-[11px] text-indigo-400">
-                      ⚡ {task.credits_charged}
-                    </p>
-                  )}
-                </div>
-                <ArrowRightIcon className="h-3.5 w-3.5 shrink-0 text-slate-600 group-hover:text-slate-400 transition" />
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-200">Recent Tasks</h2>
+          {tasks.length > 0 && (
+            <span className="text-xs text-slate-600">{tasks.length} shown</span>
+          )}
+        </div>
+        <TaskList tasks={tasks as unknown as Array<{ id: string; goal: string; status: "pending"|"running"|"completed"|"failed"|"cancelled"; credits_charged: number; created_at: string }>} />
       </section>
     </main>
   );

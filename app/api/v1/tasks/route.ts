@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
 import crypto from "crypto";
+import { rateLimit, API_KEY_RATE_LIMIT } from "@/lib/rate-limit";
 
 async function authenticateApiKey(req: NextRequest): Promise<string | null> {
   const auth = req.headers.get("authorization") ?? "";
@@ -29,6 +30,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const profileId = await authenticateApiKey(req);
   if (!profileId) {
     return NextResponse.json({ error: "Invalid or missing API key" }, { status: 401 });
+  }
+
+  // Rate limit: 30 API calls per key per minute
+  const rl = rateLimit(`api_v1:${profileId}`, API_KEY_RATE_LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Max 30 requests/minute.", remaining: 0, resetAt: rl.resetAt },
+      { status: 429, headers: { "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(rl.resetAt) } }
+    );
   }
 
   const { agent_slug, goal } = await req.json();

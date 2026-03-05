@@ -18,10 +18,22 @@ function getStripe(): Stripe {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function topUpCredits(
   stripeCustomerId: string,
-  usdAmountCents: number,  // Stripe amount is already in cents
+  usdAmountCents: number,
   paymentIntentId: string
 ): Promise<void> {
   const supabase = createServiceClient();
+
+  // ── Idempotency check: skip if this payment was already processed ──────────
+  const { data: existing } = await supabase
+    .from("credit_transactions")
+    .select("id")
+    .eq("reference_id", paymentIntentId)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(`[Stripe webhook] Skipping duplicate payment: ${paymentIntentId}`);
+    return;
+  }
 
   // Find the profile by Stripe customer ID
   const { data: profile, error } = await supabase
@@ -54,6 +66,8 @@ async function topUpCredits(
 
   if (updateRes.error) throw updateRes.error;
   if (txnRes.error)    throw txnRes.error;
+
+  console.log(`[Stripe webhook] Credited ${creditsToAdd} to ${profile.id} (${paymentIntentId})`);
 }
 
 // ── Webhook handler ───────────────────────────────────────────────────────────

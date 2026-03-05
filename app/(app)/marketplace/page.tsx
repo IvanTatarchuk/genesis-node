@@ -31,12 +31,18 @@ const SORT_OPTIONS = [
   { value: "price_desc",label:"Most expensive" },
 ];
 
+const PAGE_SIZE = 24;
+
 export default async function MarketplacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; cat?: string; sort?: string; tag?: string }>;
+  searchParams: Promise<{ q?: string; cat?: string; sort?: string; tag?: string; page?: string }>;
 }) {
-  const { q, cat, sort = "popular", tag } = await searchParams;
+  const { q, cat, sort = "popular", tag, page: pageStr } = await searchParams;
+  const page = Math.max(1, parseInt(pageStr ?? "1", 10));
+  const from = (page - 1) * PAGE_SIZE;
+  const to   = from + PAGE_SIZE - 1;
+
   const supabase = createServiceClient();
 
   // ── Fetch featured + stats ──────────────────────────────────────────────────
@@ -51,14 +57,16 @@ export default async function MarketplacePage({
       .limit(3),
   ]);
 
-  // ── Build main query ────────────────────────────────────────────────────────
+  // ── Build main query with count ─────────────────────────────────────────────
   let query = supabase
     .from("agents")
-    .select("id, name, slug, description, price_per_task, total_tasks_completed, avg_rating, review_count, tags, is_boosted, is_featured, category_slug, created_at")
+    .select("id, name, slug, description, price_per_task, total_tasks_completed, avg_rating, review_count, tags, is_boosted, is_featured, category_slug, created_at", { count: "exact" })
     .eq("is_active", true);
 
   if (q?.trim()) {
-    query = query.or(`name.ilike.%${q.trim()}%,description.ilike.%${q.trim()}%`);
+    // Full-text search on name + description + tags
+    const term = q.trim().replace(/[%_]/g, "\\$&");
+    query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%,tags.cs.{${term}}`);
   }
   if (cat && cat !== "all") {
     query = query.eq("category_slug", cat);
@@ -77,14 +85,14 @@ export default async function MarketplacePage({
   } else if (sort === "price_desc") {
     query = query.order("price_per_task", { ascending: false });
   } else {
-    // popular: boosted first, then featured, then tasks
     query = query
       .order("is_boosted",            { ascending: false })
       .order("is_featured",           { ascending: false })
       .order("total_tasks_completed", { ascending: false });
   }
 
-  const { data: agentsRaw } = await query.limit(60);
+  const { data: agentsRaw, count: totalCount } = await query.range(from, to);
+  const totalPages = Math.ceil((totalCount ?? 0) / PAGE_SIZE);
 
   const agents = (agentsRaw ?? []) as unknown as Array<{
     id: string; name: string; slug: string; description: string;
@@ -190,7 +198,8 @@ export default async function MarketplacePage({
           )}
 
           <p className="text-xs text-slate-600">
-            {agents.length} agent{agents.length !== 1 ? "s" : ""} found
+            {totalCount ?? agents.length} agent{(totalCount ?? agents.length) !== 1 ? "s" : ""} found
+            {totalPages > 1 && ` — page ${page} of ${totalPages}`}
           </p>
 
           {agents.length === 0 ? (
@@ -210,6 +219,40 @@ export default async function MarketplacePage({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 <AgentCard key={agent.id} agent={agent as any} />
               ))}
+            </div>
+          )}
+
+          {/* ── Pagination ── */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              {page > 1 && (
+                <Link
+                  href={`?${new URLSearchParams({ ...(q ? { q } : {}), ...(cat ? { cat } : {}), ...(sort !== "popular" ? { sort } : {}), page: String(page - 1) }).toString()}`}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition"
+                >
+                  ← Prev
+                </Link>
+              )}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                return (
+                  <Link
+                    key={p}
+                    href={`?${new URLSearchParams({ ...(q ? { q } : {}), ...(cat ? { cat } : {}), ...(sort !== "popular" ? { sort } : {}), page: String(p) }).toString()}`}
+                    className={`rounded-lg border px-3 py-2 text-sm transition ${p === page ? "border-indigo-500 bg-indigo-600 text-white" : "border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
+                  >
+                    {p}
+                  </Link>
+                );
+              })}
+              {page < totalPages && (
+                <Link
+                  href={`?${new URLSearchParams({ ...(q ? { q } : {}), ...(cat ? { cat } : {}), ...(sort !== "popular" ? { sort } : {}), page: String(page + 1) }).toString()}`}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 transition"
+                >
+                  Next →
+                </Link>
+              )}
             </div>
           )}
         </section>

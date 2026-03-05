@@ -1,18 +1,54 @@
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import type { Agent } from "@/lib/database.types";
 import DeployForm from "@/components/DeployForm";
 import ReviewSection from "@/components/ReviewSection";
 import Link from "next/link";
 import {
-  BoltIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  TagIcon,
+  Zap as BoltIcon,
+  CheckCircle as CheckCircleIcon,
+  Clock as ClockIcon,
+  Tag as TagIcon,
 } from "lucide-react";
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev.vercel.app";
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = createServiceClient();
+
+  const { data } = await supabase
+    .from("agents")
+    .select("name, description, avg_rating, tags")
+    .eq("slug", slug)
+    .single();
+
+  if (!data) return { title: "Agent not found" };
+
+  const title = `${data.name} – AI Agent`;
+  const description = data.description?.slice(0, 160) ?? "";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url:    `${BASE_URL}/agents/${slug}`,
+      images: [{ url: `${BASE_URL}/agents/${slug}/opengraph-image`, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title,
+      description,
+      images:      [`${BASE_URL}/agents/${slug}/opengraph-image`],
+    },
+  };
 }
 
 export default async function AgentDetailPage({ params }: Props) {

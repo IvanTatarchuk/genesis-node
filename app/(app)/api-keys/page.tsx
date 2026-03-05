@@ -2,6 +2,7 @@ import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/database.types";
 import ApiKeysManager from "@/components/ApiKeysManager";
+import WebhookManager from "@/components/WebhookManager";
 
 export default async function ApiKeysPage() {
   const supabase = await createServerSupabaseClient();
@@ -47,6 +48,11 @@ export default async function ApiKeysPage() {
       ) : (
         <ApiKeysManager keys={keys ?? []} />
       )}
+
+      {/* Webhooks — available for all devs */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+        <WebhookManager />
+      </div>
 
       {/* Docs */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-4">

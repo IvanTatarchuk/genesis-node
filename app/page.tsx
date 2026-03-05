@@ -65,11 +65,23 @@ export default async function HomePage() {
           <Link href="/marketplace" className="text-sm text-slate-400 hover:text-white transition">
             Marketplace
           </Link>
+          <Link href="/templates" className="text-sm text-slate-400 hover:text-white transition hidden sm:block">
+            Templates
+          </Link>
+          <Link href="/gallery" className="text-sm text-slate-400 hover:text-white transition hidden sm:block">
+            Gallery
+          </Link>
           <Link href="/leaderboard" className="text-sm text-slate-400 hover:text-white transition">
             Leaderboard
           </Link>
           <Link href="/become-developer" className="text-sm text-slate-400 hover:text-white transition hidden sm:block">
             Earn as Dev
+          </Link>
+          <Link href="/matadora" className="text-sm text-amber-400 hover:text-amber-300 font-medium transition hidden lg:block">
+            🪙 MATADORA
+          </Link>
+          <Link href="/support" className="text-sm text-slate-400 hover:text-white transition hidden lg:block">
+            Support
           </Link>
           <Link
             href="/login"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import type { Profile } from "@/lib/database.types";
+import { rateLimit, CHECKOUT_RATE_LIMIT, getClientIp } from "@/lib/rate-limit";
 
 // Credit packs: credits → price in cents
 const CREDIT_PRICES: Record<number, number> = {
@@ -20,6 +21,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limit: 5 checkout sessions per user per minute
+  const ip = getClientIp(req);
+  const rl = rateLimit(`checkout:${user.id}:${ip}`, CHECKOUT_RATE_LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many checkout attempts. Please wait a moment." }, { status: 429 });
   }
 
   const { credits } = await req.json() as { credits: number };

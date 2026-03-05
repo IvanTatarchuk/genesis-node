@@ -11,6 +11,8 @@ import {
   LoaderIcon,
   CopyIcon,
   CheckIcon,
+  Globe,
+  GlobeLock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Task, Log, LogType } from "@/lib/database.types";
@@ -57,8 +59,10 @@ function StatusBadge({ status }: { status: Task["status"] }) {
 export default function LiveStream({ task: initialTask, initialLogs }: Props) {
   const [task, setTask]       = useState<Task>(initialTask);
   const [logs, setLogs]       = useState<Log[]>(initialLogs);
-  const [copied, setCopied]   = useState(false);
-  const bottomRef             = useRef<HTMLDivElement>(null);
+  const [copied, setCopied]     = useState(false);
+  const [isPublic, setIsPublic] = useState(!!(initialTask as unknown as { is_public?: boolean }).is_public);
+  const [toggling, setToggling] = useState(false);
+  const bottomRef               = useRef<HTMLDivElement>(null);
   const supabase              = createClient();
 
   // Auto-scroll to latest log
@@ -96,6 +100,22 @@ export default function LiveStream({ task: initialTask, initialLogs }: Props) {
       supabase.removeChannel(taskChannel);
     };
   }, [task.id, supabase]);
+
+  const togglePublic = useCallback(async () => {
+    if (toggling || task.status !== "completed") return;
+    setToggling(true);
+    try {
+      const newVal = !isPublic;
+      await fetch(`/api/tasks/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_id: task.id, is_public: newVal }),
+      });
+      setIsPublic(newVal);
+    } finally {
+      setToggling(false);
+    }
+  }, [task.id, task.status, isPublic, toggling]);
 
   const copyLogs = useCallback(() => {
     const text = logs.map((l) => `[${l.type.toUpperCase()}] ${l.content}`).join("\n");
@@ -140,14 +160,29 @@ export default function LiveStream({ task: initialTask, initialLogs }: Props) {
           )}
           <StatusBadge status={task.status} />
           {task.status === "completed" && (
-            <a
-              href={`/share/${task.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-800/60 bg-emerald-950/40 px-2.5 py-1.5 text-xs font-medium text-emerald-400 hover:border-emerald-700 hover:bg-emerald-900/40 transition"
-            >
-              ↗ Share result
-            </a>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={togglePublic}
+                disabled={toggling}
+                title={isPublic ? "Remove from gallery" : "Share to public gallery"}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                  isPublic
+                    ? "border-emerald-700 bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50"
+                    : "border-slate-700 bg-slate-900 text-slate-400 hover:border-emerald-700 hover:text-emerald-400"
+                }`}
+              >
+                {isPublic ? <Globe className="h-3 w-3" /> : <GlobeLock className="h-3 w-3" />}
+                {isPublic ? "Public" : "Share"}
+              </button>
+              <a
+                href={`/share/${task.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-400 hover:border-slate-700 hover:text-slate-200 transition"
+              >
+                ↗ Link
+              </a>
+            </div>
           )}
           <button
             onClick={copyLogs}

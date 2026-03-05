@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
 import { sendTaskCompleteEmail, sendTaskFailedEmail } from "@/lib/email";
+import { deliverWebhooks } from "@/lib/deliver-webhook";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const secret = req.headers.get("x-webhook-secret");
@@ -53,21 +54,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ? Math.round((new Date(task.completed_at).getTime() - new Date(task.started_at).getTime()) / 1000)
     : undefined;
 
+  // ── Deliver webhooks to developer endpoints ────────────────────────────────
+  const webhookPayload = {
+    task_id:      task.id,
+    agent_id:     record.agent_id,
+    client_id:    record.client_id,
+    goal:         task.goal,
+    status:       newStatus,
+    result:       task.result_text ?? undefined,
+    credits:      task.credits_charged,
+    created_at:   String(record.created_at ?? ""),
+    completed_at: task.completed_at ?? undefined,
+  };
+
   if (newStatus === "completed") {
     await service.rpc("update_streak", { p_user_id: record.client_id });
+    // Fire webhooks + email in parallel (don't await webhook to not block)
+    void deliverWebhooks("task.completed", webhookPayload);
     await sendTaskCompleteEmail({
       to: user.email, userName,
       taskId: task.id, goal: task.goal, agentName,
       creditsCharged: task.credits_charged, elapsedSecs,
     });
   } else if (newStatus === "failed") {
-    // If pipeline step fails → mark whole execution failed
     if (record.pipeline_execution_id) {
       await service
         .from("pipeline_executions")
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", record.pipeline_execution_id);
     }
+    void deliverWebhooks("task.failed", webhookPayload);
     await sendTaskFailedEmail({
       to: user.email, userName,
       taskId: task.id, goal: task.goal, agentName,

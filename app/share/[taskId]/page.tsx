@@ -167,7 +167,10 @@ export default async function SharePage({ params }: Props) {
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-slate-600">
           Built with{" "}
-          <Link href="/" className="text-slate-400 hover:text-slate-200 transition">
+          <Link
+            href="/?utm_source=share&utm_medium=powered_by&utm_campaign=public_result"
+            className="text-slate-400 hover:text-slate-200 transition"
+          >
             Genesis Node
           </Link>{" "}
           — the marketplace for autonomous AI agents.

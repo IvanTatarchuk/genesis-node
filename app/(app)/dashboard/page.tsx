@@ -9,6 +9,8 @@ import ReferralCard from "@/components/ReferralCard";
 import StreakBadge from "@/components/StreakBadge";
 import TaskList from "@/components/TaskList";
 import ScheduleManager from "@/components/ScheduleManager";
+import QuestList from "@/components/QuestList";
+import AchievementsGrid from "@/components/AchievementsGrid";
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -191,16 +193,20 @@ export default async function DashboardPage() {
         }))} />
       </section>
 
-      {/* Referral + Streak sidebar section */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {referralCode && (
-          <ReferralCard
-            referralCode={referralCode}
-            referralCount={referralCount}
-            referralEarned={referralEarned}
-          />
-        )}
-        <StreakBadge currentStreak={currentStreak} longestStreak={longestStreak} />
+      {/* Gamification row: referrals, streaks, quests, achievements */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4">
+          {referralCode && (
+            <ReferralCard
+              referralCode={referralCode}
+              referralCount={referralCount}
+              referralEarned={referralEarned}
+            />
+          )}
+          <StreakBadge currentStreak={currentStreak} longestStreak={longestStreak} />
+        </div>
+        <QuestList />
+        <AchievementsGrid />
       </div>
 
       {/* Recent tasks */}

@@ -12,8 +12,8 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
   const [copied, setCopied] = useState(false);
 
   const referralUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/register?ref=${referralCode}`
-    : `https://agents-dev-roan.vercel.app/register?ref=${referralCode}`;
+    ? `${window.location.origin}/login?ref=${referralCode}`
+    : `https://agents-dev-roan.vercel.app/login?ref=${referralCode}`;
 
   async function copyLink() {
     await navigator.clipboard.writeText(referralUrl);

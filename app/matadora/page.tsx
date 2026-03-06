@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createServiceClient } from "@/lib/supabase-server";
 import MatadoraClient from "@/components/MatadoraClient";
+import MatadoraStaking from "@/components/MatadoraStaking";
 import Link from "next/link";
 import { FAQSchema } from "@/components/JsonLd";
 
@@ -116,6 +117,9 @@ export default async function MatadoraPage() {
 
         {/* Live wallet */}
         <MatadoraClient currentRate={rate} />
+
+        {/* Staking */}
+        <MatadoraStaking />
 
         {/* FAQ */}
         <div className="space-y-4">

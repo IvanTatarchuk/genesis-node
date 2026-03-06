@@ -166,9 +166,20 @@ export default async function GalleryPage({ searchParams }: Props) {
                   )}
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between text-[10px] text-slate-600 pt-1">
-                    <span>{profile?.display_name ? `by ${profile.display_name}` : "Anonymous"}</span>
-                    <span className="text-indigo-400">View full result →</span>
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-600">
+                      <span>{profile?.display_name ? `by ${profile.display_name}` : "Anonymous"}</span>
+                      <span className="text-indigo-400">View full result →</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[9px] text-slate-600">
+                      <span>Powered by GENESIS NODE</span>
+                      <Link
+                        href="/?utm_source=gallery&utm_medium=powered_by&utm_campaign=public_results"
+                        className="text-[9px] text-slate-400 hover:text-slate-200 transition"
+                      >
+                        Build your own →
+                      </Link>
+                    </div>
                   </div>
                 </Link>
               );

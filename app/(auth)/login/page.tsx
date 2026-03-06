@@ -8,13 +8,17 @@ import { Suspense } from "react";
 function LoginContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
+  const ref = searchParams.get("ref") ?? "";
   const supabase = createClient();
 
   async function signInWithGoogle() {
+    const callbackUrl = ref
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&ref=${encodeURIComponent(ref)}`
+      : `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: callbackUrl,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

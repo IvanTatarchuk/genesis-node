@@ -122,7 +122,7 @@ export default async function TrinityPage() {
                     <span className="font-medium text-white">{state.cycle_count ?? 0}</span>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Здоров'я</span>
+                    <span>Здоров&apos;я</span>
                     <span className="font-medium text-emerald-400">{state.health_score ?? 100}%</span>
                   </div>
                   {state.last_run && (

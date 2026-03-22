@@ -39,7 +39,7 @@ export default function SupportPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-white">AI Support</h1>
-          <p className="text-slate-400 text-sm">Powered by Claude. Available 24/7. Knows everything about the platform.</p>
+          <p className="text-slate-400 text-sm">Powered by Claude. Available 24/7. We&apos;re here to help — our mission is to serve millions of people.</p>
         </div>
 
         {/* Quick questions */}
@@ -64,10 +64,12 @@ export default function SupportPage() {
         {/* Links */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
           {[
+            { label: "FAQ", href: "/faq" },
             { label: "Docs", href: "/integrations" },
             { label: "Pricing", href: "/pricing" },
             { label: "Marketplace", href: "/marketplace" },
             { label: "Templates", href: "/templates" },
+            { label: "Status", href: "/status" },
           ].map(({ label, href }) => (
             <Link key={label} href={href} className="rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-xs text-slate-500 hover:text-slate-200 hover:border-slate-700 transition">
               {label}

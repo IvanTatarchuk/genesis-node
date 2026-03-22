@@ -142,9 +142,9 @@ export default function PipelineBuilder({ availableAgents }: Props) {
                 className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
                 <div className="flex flex-col gap-1">
                   <button type="button" onClick={() => moveStep(i, -1)} disabled={i === 0}
-                    className="text-slate-600 hover:text-slate-300 disabled:opacity-20 text-xs leading-none">▲</button>
+                    className="text-slate-600 hover:text-slate-300 disabled:opacity-20 text-xs leading-none" aria-label="Move step up">▲</button>
                   <button type="button" onClick={() => moveStep(i, 1)} disabled={i === steps.length - 1}
-                    className="text-slate-600 hover:text-slate-300 disabled:opacity-20 text-xs leading-none">▼</button>
+                    className="text-slate-600 hover:text-slate-300 disabled:opacity-20 text-xs leading-none" aria-label="Move step down">▼</button>
                 </div>
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600/20 border border-indigo-600/30 text-xs font-bold text-indigo-400">
                   {i + 1}
@@ -155,7 +155,7 @@ export default function PipelineBuilder({ availableAgents }: Props) {
                 </div>
                 <span className="text-xs text-slate-500 shrink-0">⚡ {step.price} cr</span>
                 <button type="button" onClick={() => removeStep(i)}
-                  className="shrink-0 text-slate-600 hover:text-red-400 transition text-sm">✕</button>
+                  className="shrink-0 text-slate-600 hover:text-red-400 transition text-sm" aria-label="Remove step">✕</button>
               </div>
             ))}
 
@@ -258,7 +258,7 @@ export default function PipelineBuilder({ availableAgents }: Props) {
               <span key={t} className="inline-flex items-center gap-1 rounded-full border border-indigo-700/50 bg-indigo-950/30 px-2.5 py-1 text-xs text-indigo-300">
                 {t}
                 <button type="button" onClick={() => setTags((p) => p.filter((x) => x !== t))}
-                  className="text-indigo-500 hover:text-red-400 transition text-[10px]">✕</button>
+                  className="text-indigo-500 hover:text-red-400 transition text-[10px]" aria-label={`Remove tag ${t}`}>✕</button>
               </span>
             ))}
           </div>

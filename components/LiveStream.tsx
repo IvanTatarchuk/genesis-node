@@ -13,13 +13,18 @@ import {
   CheckIcon,
   Globe,
   GlobeLock,
+  Volume2,
+  Square,
 } from "lucide-react";
+import { useVoiceOutput } from "@/hooks/useVoiceOutput";
 import { createClient } from "@/lib/supabase";
 import type { Task, Log, LogType } from "@/lib/database.types";
 
 interface Props {
   task: Task;
   initialLogs: Log[];
+  agentSlug?: string | null;
+  taskGoal?: string;
 }
 
 const LOG_COLORS: Record<LogType, string> = {
@@ -56,7 +61,7 @@ function StatusBadge({ status }: { status: Task["status"] }) {
   );
 }
 
-export default function LiveStream({ task: initialTask, initialLogs }: Props) {
+export default function LiveStream({ task: initialTask, initialLogs, agentSlug, taskGoal }: Props) {
   const [task, setTask]       = useState<Task>(initialTask);
   const [logs, setLogs]       = useState<Log[]>(initialLogs);
   const [copied, setCopied]     = useState(false);
@@ -64,6 +69,16 @@ export default function LiveStream({ task: initialTask, initialLogs }: Props) {
   const [toggling, setToggling] = useState(false);
   const bottomRef               = useRef<HTMLDivElement>(null);
   const supabase              = createClient();
+  const { isSpeaking, isSupported: ttsSupported, speak, stop: stopTts } = useVoiceOutput();
+  const announcedCompleteRef = useRef(false);
+
+  // One-time announcement when task completes
+  useEffect(() => {
+    if (task.status === "completed" && ttsSupported && !announcedCompleteRef.current) {
+      announcedCompleteRef.current = true;
+      speak("Task completed.", { rate: 0.9 });
+    }
+  }, [task.status, ttsSupported, speak]);
 
   // Auto-scroll to latest log
   useEffect(() => {
@@ -255,7 +270,30 @@ export default function LiveStream({ task: initialTask, initialLogs }: Props) {
 
         {task.status === "completed" && task.result_summary && (
           <div className="mt-6 rounded-xl border border-emerald-800/60 bg-emerald-900/10 p-4">
-            <p className="text-xs font-semibold text-emerald-400 mb-2">✅ Result Summary</p>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-xs font-semibold text-emerald-400">✅ Result Summary</p>
+              {ttsSupported && (
+                isSpeaking ? (
+                  <button
+                    type="button"
+                    onClick={stopTts}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-700/60 bg-amber-900/30 px-2.5 py-1.5 text-xs text-amber-200 hover:bg-amber-900/50 transition"
+                  >
+                    <Square className="h-3 w-3 fill-current" />
+                    Stop
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => speak(task.result_summary!)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-2.5 py-1.5 text-xs text-slate-300 hover:border-indigo-500/50 hover:text-white transition"
+                  >
+                    <Volume2 className="h-3.5 w-3.5" />
+                    Read aloud
+                  </button>
+                )
+              )}
+            </div>
             <p className="text-sm text-slate-200 whitespace-pre-wrap">{task.result_summary}</p>
             {task.result_url && (
               <a
@@ -271,12 +309,43 @@ export default function LiveStream({ task: initialTask, initialLogs }: Props) {
         )}
 
         {task.status === "failed" && (
-          <div className="mt-6 rounded-xl border border-red-800/60 bg-red-900/10 p-4">
-            <p className="text-xs font-semibold text-red-400">
-              ❌ Task failed — credits have been refunded.
+          <div className="mt-6 rounded-xl border border-amber-800/50 bg-amber-950/20 p-4">
+            <p className="text-xs font-medium text-amber-200">
+              This run didn&apos;t complete. No worries — your credits have been refunded automatically. You can try again with a different goal or agent.
             </p>
           </div>
         )}
+
+        {(task.status === "completed" || task.status === "failed") && agentSlug && taskGoal && (
+          <div className="mt-6 rounded-xl border border-indigo-800/40 bg-indigo-950/20 p-4">
+            <p className="text-xs text-slate-300 mb-3">Run the same agent again with the same goal?</p>
+            <Link
+              href={`/agents/${agentSlug}?goal=${encodeURIComponent(taskGoal)}`}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-medium text-white transition"
+            >
+              Run again →
+            </Link>
+          </div>
+        )}
+
+        {task.status === "completed" && (
+          <div className="mt-6 rounded-xl border border-amber-800/40 bg-amber-950/20 p-4">
+            <p className="text-xs font-medium text-amber-200 mb-2">Need more credits?</p>
+            <p className="text-xs text-slate-400 mb-3">Upgrade to a subscription — predictable monthly credits, no surprise runouts.</p>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-500 px-4 py-2 text-xs font-medium text-slate-950 transition"
+            >
+              View plans →
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-6 pt-4 border-t border-slate-800/60">
+          <p className="text-xs text-slate-500">
+            Questions? <Link href="/support" className="text-indigo-400 hover:underline">Contact support</Link>
+          </p>
+        </div>
 
         <div ref={bottomRef} />
       </div>

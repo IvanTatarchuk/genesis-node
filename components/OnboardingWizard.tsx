@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
 import {
   Cpu as CpuChipIcon,
   Code2 as CodeBracketIcon,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 const CheckCircle2Icon = CheckCircle2;
 
-type Role = "client" | "dev";
+type Role = Database["public"]["Tables"]["profiles"]["Row"]["role"];
 
 const STEPS = ["Вибір ролі", "Перший крок", "Готово!"];
 
@@ -28,11 +29,8 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
   async function finishOnboarding() {
     setSaving(true);
     // Mark onboarding as done
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (sb as any)
-      .from("profiles")
-      .update({ onboarding_done: true, role: role ?? "client" })
-      .eq("id", userId);
+    // @ts-expect-error Supabase client infers profiles update arg as never with current generics
+    await sb.from("profiles").update({ onboarding_done: true, role: role ?? "client" }).eq("id", userId);
     router.refresh();
     setSaving(false);
   }
@@ -43,8 +41,9 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
         {/* Progress bar */}
         <div className="h-1 bg-slate-800">
           <div
-            className="h-full bg-gradient-to-r from-indigo-600 to-sky-500 transition-all duration-500"
-            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+            className={`h-full bg-gradient-to-r from-indigo-600 to-sky-500 transition-all duration-500 ${
+              step === 0 ? "w-1/3" : step === 1 ? "w-2/3" : "w-full"
+            }`}
           />
         </div>
 

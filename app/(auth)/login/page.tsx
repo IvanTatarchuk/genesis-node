@@ -4,11 +4,13 @@ import { createClient } from "@/lib/supabase";
 import { BotIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import Link from "next/link";
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? searchParams.get("redirect") ?? "/dashboard";
   const ref = searchParams.get("ref") ?? "";
+  const errorParam = searchParams.get("error") ?? "";
   const supabase = createClient();
 
   async function signInWithGoogle() {
@@ -44,18 +46,25 @@ function LoginContent() {
               GENESIS NODE
             </h1>
             <p className="mt-1 text-xs text-slate-500">
-              The AI agent marketplace
+              Built to help millions of people save time and get results
             </p>
           </div>
         </div>
 
+        {errorParam && (
+          <div className="mb-4 rounded-xl border border-amber-800/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+            Something went wrong signing you in. Please try again. If it keeps happening,{" "}
+            <Link href="/support" className="underline hover:text-amber-100">we’re here to help</Link>.
+          </div>
+        )}
+
         {/* Card */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/60 backdrop-blur">
           <h2 className="text-base font-semibold text-slate-100">
-            Sign in to continue
+            Welcome back
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            Deploy agents or monetize your own — all in one place.
+            One click with Google — no password to remember. We’ll bring you right back where you left off.
           </p>
 
           <div className="mt-6 space-y-3">
@@ -111,6 +120,10 @@ function LoginContent() {
           <span className="text-slate-400">
             Sign in → Dashboard → switch role to Dev to list your agents.
           </span>
+        </p>
+        <p className="mt-3 text-center text-xs text-slate-600">
+          Need help?{" "}
+          <Link href="/support" className="text-indigo-400 hover:text-indigo-300 transition">Contact support</Link>
         </p>
       </div>
     </main>

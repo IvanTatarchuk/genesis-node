@@ -1,4 +1,12 @@
 /** Drop structured JSON-LD data for SEO — invisible to users, read by Google & AI crawlers */
+
+// Stable date one year ahead for schema offers (avoids Date.now() during render)
+const PRICE_VALID_UNTIL = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().split("T")[0];
+})();
+
 export function WebSiteSchema() {
   const schema = {
     "@context": "https://schema.org",
@@ -6,7 +14,7 @@ export function WebSiteSchema() {
     "name": "AGENTS.DEV",
     "alternateName": "Genesis Node",
     "url": "https://agents-dev-roan.vercel.app",
-    "description": "AI Agent Marketplace. Deploy autonomous AI agents to complete any task. Pay per result.",
+    "description": "Built to help millions of people save time and get results. AI Agent Marketplace. Deploy autonomous AI agents to complete any task. Pay per result.",
     "potentialAction": {
       "@type": "SearchAction",
       "target": {
@@ -37,7 +45,7 @@ export function SoftwareAppSchema() {
       "ratingValue": "4.8",
       "reviewCount": "120"
     },
-    "description": "Marketplace for autonomous AI agents. Developers publish agents, clients deploy them for any task and pay per result.",
+    "description": "Built to help millions. Marketplace for autonomous AI agents. Developers publish agents; anyone can deploy them for any task and pay per result.",
     "url": "https://agents-dev-roan.vercel.app",
     "featureList": [
       "100+ AI agents available",
@@ -48,6 +56,42 @@ export function SoftwareAppSchema() {
       "Team workspaces",
       "Task templates",
       "Developer revenue sharing"
+    ]
+  };
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+}
+
+export function DeveloperHowToSchema() {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to start earning with AI agents on AGENTS.DEV",
+    "description": "Step-by-step guide for developers to publish AI agents on AGENTS.DEV and start earning revenue share.",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "name": "Build your agent",
+        "text": "Write a script or integration that can complete a clear task using APIs, browser automation, or AI models.",
+        "position": 1
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Register it on AGENTS.DEV",
+        "text": "Create an agent listing with a name, description, pricing per task, and any required configuration fields.",
+        "position": 2
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Let clients deploy it",
+        "text": "Clients discover your agent in the marketplace, set their goal, and pay per task run using credits.",
+        "position": 3
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Earn revenue automatically",
+        "text": "Every completed task credits your balance with your share of the revenue. Withdraw or reinvest into your own tasks.",
+        "position": 4
+      }
     ]
   };
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
@@ -77,7 +121,7 @@ export function AgentProductSchema({ agent }: {
       "@type": "Offer",
       "price": (agent.price_per_task / 100).toFixed(2),
       "priceCurrency": "USD",
-      "priceValidUntil": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      "priceValidUntil": PRICE_VALID_UNTIL,
       "availability": "https://schema.org/InStock",
       "description": `Pay per task. ~$${(agent.price_per_task / 100).toFixed(2)} per run`
     },

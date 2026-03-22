@@ -1,5 +1,6 @@
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import PipelineBuilder from "@/components/PipelineBuilder";
 
 export const metadata = { title: "Create Pipeline — Genesis Node" };
@@ -43,10 +44,10 @@ export default async function NewPipelinePage() {
           <p className="text-xs text-slate-400">
             Currently you have {agents?.length ?? 0} agent{(agents?.length ?? 0) !== 1 ? "s" : ""}.
           </p>
-          <a href="/agents/new"
+          <Link href="/agents/new"
             className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-indigo-600/10 px-4 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/20 transition">
             + Register new agent
-          </a>
+          </Link>
         </div>
       ) : (
         <PipelineBuilder availableAgents={agents as {

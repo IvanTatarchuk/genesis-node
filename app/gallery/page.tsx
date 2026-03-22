@@ -121,10 +121,10 @@ export default async function GalleryPage({ searchParams }: Props) {
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {results.map((r) => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const agent   = r.agents  as any;
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const profile = r.profiles as any;
+              const rawAgents = r.agents as unknown;
+              const agent = Array.isArray(rawAgents) ? rawAgents[0] : rawAgents;
+              const rawProfiles = r.profiles as unknown;
+              const profile = Array.isArray(rawProfiles) ? rawProfiles[0] : rawProfiles;
               const preview = r.result_summary ?? r.result_text?.slice(0, 200) ?? "";
               const elapsed = r.completed_at && (r as unknown as { created_at: string }).created_at
                 ? Math.round((new Date(r.completed_at).getTime() - new Date((r as unknown as { created_at: string }).created_at).getTime()) / 1000)
@@ -139,7 +139,7 @@ export default async function GalleryPage({ searchParams }: Props) {
                   {/* Agent badge */}
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-400">
-                      🤖 {agent?.name ?? "AI Agent"}
+                      🤖 {(agent as { name?: string } | null)?.name ?? "AI Agent"}
                     </span>
                     {elapsed && (
                       <span className="text-[10px] text-slate-600">
@@ -168,7 +168,7 @@ export default async function GalleryPage({ searchParams }: Props) {
                   {/* Footer */}
                   <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-[10px] text-slate-600">
-                      <span>{profile?.display_name ? `by ${profile.display_name}` : "Anonymous"}</span>
+                      <span>{(profile as { display_name?: string } | null)?.display_name ? `by ${(profile as { display_name: string }).display_name}` : "Anonymous"}</span>
                       <span className="text-indigo-400">View full result →</span>
                     </div>
                     <div className="flex items-center justify-between text-[9px] text-slate-600">

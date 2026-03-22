@@ -19,8 +19,8 @@ export default function RoleSwitcher({ currentRole }: Props) {
     const newRole: UserRole = currentRole === "client" ? "dev" : "client";
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("profiles") as any).update({ role: newRole }).eq("id", user.id);
+    // @ts-expect-error Supabase client infers profiles update arg as never with current generics
+    await supabase.from("profiles").update({ role: newRole }).eq("id", user.id);
     router.refresh();
     setLoading(false);
   }

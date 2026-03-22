@@ -11,6 +11,7 @@ import TaskList from "@/components/TaskList";
 import ScheduleManager from "@/components/ScheduleManager";
 import QuestList from "@/components/QuestList";
 import AchievementsGrid from "@/components/AchievementsGrid";
+import UpgradeCreditsBanner from "@/components/UpgradeCreditsBanner";
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient();
@@ -59,7 +60,7 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100">
-            Welcome back{profile?.display_name ? `, ${profile.display_name.split(" ")[0]}` : ""}
+            {profile?.display_name ? `Hi, ${profile.display_name.split(" ")[0]}` : "Welcome back"}
           </h1>
           <p className="mt-1 text-sm text-slate-400">
             {profile?.role === "dev" ? "Developer account" : "Client account"} ·{" "}
@@ -77,6 +78,12 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Upgrade CTA when low credits or free tier */}
+      <UpgradeCreditsBanner
+        balance={profile?.balance ?? 0}
+        subscriptionTier={(profile as unknown as { subscription_tier?: string })?.subscription_tier}
+      />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -140,9 +147,10 @@ export default async function DashboardPage() {
           </div>
           {agents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center">
-              <p className="text-sm text-slate-500">No agents yet.</p>
-              <Link href="/agents/new" className="mt-3 inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition">
-                Register your first agent <ArrowRightIcon className="h-3 w-3" />
+              <p className="text-sm text-slate-400">You don&apos;t have any agents yet.</p>
+              <p className="mt-1 text-xs text-slate-500">When you&apos;re ready, register your first one — we&apos;ll guide you step by step.</p>
+              <Link href="/agents/new" className="mt-4 inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition font-medium">
+                Register your first agent <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </div>
           ) : (

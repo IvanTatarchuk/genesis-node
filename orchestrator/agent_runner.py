@@ -1,7 +1,12 @@
 """
-Genesis Node — Agent Runner
-Executes a single task using Claude (Sonnet) + Playwright.
+Genesis Node — Agent Runner v2
+Executes a single task using XAI/Grok (primary), Ollama, or Claude as fallback.
 Logs every thought/action/result to Supabase logs table.
+
+LLM priority (first available key wins):
+  1. XAI_API_KEY  → Grok-3-mini (OpenAI-compatible, fast, already paid)
+  2. OLLAMA_URL   → local/Railway Ollama (free, needs GPU)
+  3. ANTHROPIC_API_KEY → Claude Sonnet (paid, high quality)
 """
 
 import asyncio
@@ -12,25 +17,44 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from supabase import create_client, Client
-import anthropic
 from openai import AsyncOpenAI
 from playwright.async_api import async_playwright, Page
 
+SUPABASE_URL       = os.environ["SUPABASE_URL"]
+SUPABASE_KEY       = os.environ["SUPABASE_SERVICE_KEY"]
 
-SUPABASE_URL          = os.environ["SUPABASE_URL"]
-SUPABASE_KEY          = os.environ["SUPABASE_SERVICE_KEY"]
-OLLAMA_URL            = os.getenv("OLLAMA_URL", "")
-OLLAMA_MODEL          = os.getenv("OLLAMA_MODEL", "llava")
-ANTHROPIC_API_KEY     = os.environ.get("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL          = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
-MAX_STEPS             = int(os.getenv("MAX_STEPS", "20"))
-TIMEOUT_SECS          = int(os.getenv("TASK_TIMEOUT_SECONDS", "600"))
+# LLM backends — first available key wins
+XAI_API_KEY        = os.getenv("XAI_API_KEY", "")
+OLLAMA_URL         = os.getenv("OLLAMA_URL", "")
+OLLAMA_MODEL       = os.getenv("OLLAMA_MODEL", "llava")
+ANTHROPIC_API_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
 
-USE_OLLAMA = bool(OLLAMA_URL)
+GROK_MODEL  = os.getenv("GROK_MODEL", "grok-3-mini")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
+MAX_STEPS    = int(os.getenv("MAX_STEPS", "20"))
+TIMEOUT_SECS = int(os.getenv("TASK_TIMEOUT_SECONDS", "600"))
+
+# Determine active backend
+if XAI_API_KEY:
+    LLM_BACKEND = "xai"
+elif OLLAMA_URL:
+    LLM_BACKEND = "ollama"
+elif ANTHROPIC_API_KEY:
+    LLM_BACKEND = "claude"
+else:
+    raise EnvironmentError(
+        "No LLM configured. Set XAI_API_KEY (Grok), OLLAMA_URL, or ANTHROPIC_API_KEY."
+    )
+
+USE_OLLAMA = (LLM_BACKEND == "ollama")
 
 
 def supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+def _xai_client() -> AsyncOpenAI:
+    return AsyncOpenAI(api_key=XAI_API_KEY, base_url="https://api.x.ai/v1")
 
 
 def _ollama_client() -> AsyncOpenAI:
@@ -39,8 +63,39 @@ def _ollama_client() -> AsyncOpenAI:
     return AsyncOpenAI(api_key="ollama", base_url=base)
 
 
-def _claude_client() -> anthropic.AsyncAnthropic:
-    return anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+async def _call_openai_compat(client: AsyncOpenAI, model: str, system: str, messages: list, max_tokens: int = 1024) -> str:
+    """Generic OpenAI-compatible call (works for XAI, Ollama, OpenAI)."""
+    resp = await client.chat.completions.create(
+        model=model,
+        messages=[{"role": "system", "content": system}] + messages,
+        max_tokens=max_tokens,
+        temperature=0.2,
+    )
+    return resp.choices[0].message.content or ""
+
+
+async def _call_claude(system: str, messages: list, max_tokens: int = 1024) -> str:
+    """Anthropic Claude call (separate API format)."""
+    import anthropic  # lazy import — only if ANTHROPIC_API_KEY is set
+    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    response = await client.messages.create(
+        model=CLAUDE_MODEL,
+        system=system,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=0.2,
+    )
+    return response.content[0].text if response.content else ""
+
+
+async def call_llm(system: str, messages: list, max_tokens: int = 1024) -> str:
+    """Call the configured LLM backend."""
+    if LLM_BACKEND == "xai":
+        return await _call_openai_compat(_xai_client(), GROK_MODEL, system, messages, max_tokens)
+    elif LLM_BACKEND == "ollama":
+        return await _call_openai_compat(_ollama_client(), OLLAMA_MODEL, system, messages, max_tokens)
+    else:
+        return await _call_claude(system, messages, max_tokens)
 
 
 async def log(db: Client, task_id: str, log_type: str, content: str):
@@ -59,13 +114,6 @@ async def screenshot_base64(page: Page) -> str:
 
 
 async def run_task(task_id: str, goal: str, system_prompt: str):
-    """
-    Main agent loop:
-    1. Think (Claude text + vision)
-    2. Act (Playwright browser actions)
-    3. Observe (screenshot → Claude vision)
-    4. Repeat until DONE or max steps
-    """
     db = supabase()
     ai_ollama = _ollama_client() if USE_OLLAMA else None
     ai_claude = _claude_client() if not USE_OLLAMA else None
@@ -80,7 +128,6 @@ async def run_task(task_id: str, goal: str, system_prompt: str):
 
     full_system = system_prompt + AGENT_INSTRUCTIONS
 
-    # Anthropic uses system separately; conversation messages start with user
     messages = [
         {"role": "user", "content": f"GOAL: {goal}"},
     ]
@@ -104,38 +151,22 @@ async def run_task(task_id: str, goal: str, system_prompt: str):
                 # ── THINK ──────────────────────────────────────────────────
                 try:
                     screenshot = await screenshot_base64(page)
-                    if USE_OLLAMA:
+                    if LLM_BACKEND in ("xai", "ollama"):
                         vision_content = [
                             {"type": "text", "text": "Current browser state (screenshot):"},
                             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{screenshot}"}},
                         ]
-                        think_messages = messages + [{"role": "user", "content": vision_content}]
                     else:
+                        # Claude uses a different image format
                         vision_content = [
                             {"type": "text", "text": "Current browser state (screenshot):"},
                             {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": screenshot}},
                         ]
-                        think_messages = messages + [{"role": "user", "content": vision_content}]
+                    think_messages = messages + [{"role": "user", "content": vision_content}]
                 except Exception:
                     think_messages = messages
 
-                if USE_OLLAMA:
-                    resp = await ai_ollama.chat.completions.create(
-                        model=OLLAMA_MODEL,
-                        messages=[{"role": "system", "content": full_system}] + think_messages,
-                        max_tokens=1024,
-                        temperature=0.2,
-                    )
-                    thought = resp.choices[0].message.content or ""
-                else:
-                    response = await ai_claude.messages.create(
-                        model=CLAUDE_MODEL,
-                        system=full_system,
-                        messages=think_messages,
-                        max_tokens=1024,
-                        temperature=0.2,
-                    )
-                    thought = response.content[0].text if response.content else ""
+                thought = await call_llm(full_system, think_messages)
                 messages.append({"role": "assistant", "content": thought})
                 await log(db, task_id, "thought", thought)
 

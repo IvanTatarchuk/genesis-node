@@ -50,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     agent_id: string;
     name?: string;
     goal: string;
-    frequency: "daily" | "weekly" | "monthly";
+    frequency: "hourly" | "daily" | "weekly" | "monthly";
     run_at_hour?: number;
     run_at_dow?: number;
     timezone?: string;
@@ -105,7 +105,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     is_active?: boolean;
     name?: string;
     goal?: string;
-    frequency?: "daily" | "weekly" | "monthly";
+    frequency?: "hourly" | "daily" | "weekly" | "monthly";
     run_at_hour?: number;
     run_at_dow?: number;
   };
@@ -156,7 +156,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function computeNextRun(
-  frequency: "daily" | "weekly" | "monthly",
+  frequency: "hourly" | "daily" | "weekly" | "monthly",
   runAtHour: number,
   runAtDow: number
 ): Date {
@@ -165,7 +165,12 @@ function computeNextRun(
   next.setMinutes(0, 0, 0);
   next.setHours(runAtHour);
 
-  if (frequency === "daily") {
+  if (frequency === "hourly") {
+    // Next full hour
+    next = new Date(now);
+    next.setMinutes(0, 0, 0);
+    next.setHours(now.getHours() + 1);
+  } else if (frequency === "daily") {
     if (next <= now) next = addDays(next, 1);
   } else if (frequency === "weekly") {
     const currentDow = now.getDay();

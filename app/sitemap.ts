@@ -39,15 +39,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/`,                  changeFrequency: "daily",   priority: 1.0 },
     { url: `${BASE_URL}/marketplace`,       changeFrequency: "hourly",  priority: 0.9 },
+    { url: `${BASE_URL}/voice`,            changeFrequency: "weekly",  priority: 0.85 },
+    { url: `${BASE_URL}/compare`,          changeFrequency: "weekly",  priority: 0.85 },
     { url: `${BASE_URL}/templates`,         changeFrequency: "weekly",  priority: 0.9 },
     { url: `${BASE_URL}/gallery`,           changeFrequency: "hourly",  priority: 0.8 },
     { url: `${BASE_URL}/pricing`,           changeFrequency: "weekly",  priority: 0.8 },
     { url: `${BASE_URL}/leaderboard`,       changeFrequency: "daily",   priority: 0.7 },
-    { url: `${BASE_URL}/become-developer`,  changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/become-developer`,  changeFrequency: "weekly",  priority: 0.8 },
     { url: `${BASE_URL}/integrations`,      changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/growth-factory`,     changeFrequency: "weekly",  priority: 0.8 },
     { url: `${BASE_URL}/b2b-leads`,          changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${BASE_URL}/for/developers`,     changeFrequency: "weekly",  priority: 0.85 },
+    { url: `${BASE_URL}/for/teams`,          changeFrequency: "weekly",  priority: 0.85 },
+    { url: `${BASE_URL}/use-cases`,          changeFrequency: "weekly",  priority: 0.85 },
     { url: `${BASE_URL}/login`,             changeFrequency: "monthly", priority: 0.4 },
+    { url: `${BASE_URL}/faq`,               changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/status`,            changeFrequency: "daily",   priority: 0.5 },
+    { url: `${BASE_URL}/support`,           changeFrequency: "monthly", priority: 0.6 },
   ];
 
   return [...staticPages, ...agentPages, ...devPages];

@@ -40,12 +40,12 @@ export default function BoostAgentModal({
       });
       if (!res.ok) {
         const d = await res.json();
-        setError(d.error ?? "Помилка");
+        setError(d.error ?? "We couldn't apply the boost. Please try again.");
       } else {
         setSuccess(true);
       }
     } catch {
-      setError("Помилка мережі");
+      setError("Connection issue. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,7 @@ export default function BoostAgentModal({
             <RocketIcon className="h-5 w-5 text-indigo-400" />
             <h2 className="font-bold text-white">Буст агента</h2>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-200 transition">
+          <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-200 transition" aria-label="Закрити">
             <XIcon className="h-5 w-5" />
           </button>
         </div>

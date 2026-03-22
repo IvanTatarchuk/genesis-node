@@ -40,7 +40,7 @@ export default function QuestList({ compact = false }: Props) {
           setQuests(data.quests ?? []);
         }
       } catch {
-        if (!cancelled) setError("Could not load quests");
+        if (!cancelled) setError("We couldn't load quests. Refresh the page to try again.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -62,7 +62,7 @@ export default function QuestList({ compact = false }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to claim reward");
+        setError(data.error ?? "We couldn't claim the reward. Try again in a moment.");
         return;
       }
       setQuests((prev) =>
@@ -73,7 +73,7 @@ export default function QuestList({ compact = false }: Props) {
         ),
       );
     } catch {
-      setError("Failed to claim reward");
+      setError("Something went wrong. Try again in a moment.");
     } finally {
       setClaimingId(null);
     }
@@ -176,8 +176,7 @@ export default function QuestList({ compact = false }: Props) {
                             </div>
                             <div className="h-1.5 w-full rounded-full bg-slate-800">
                               <div
-                                className="h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-sky-400 transition-all"
-                                style={{ width: `${progress * 100}%` }}
+                                className={`h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-sky-400 transition-all quest-progress-${Math.round(Math.min(100, Math.max(0, Math.round(progress * 100))) / 5) * 5}`}
                               />
                             </div>
                           </div>

@@ -56,11 +56,12 @@ export default function NotificationCenter({ userId }: { userId: string }) {
       .limit(30);
     setItems(data ?? []);
     setLoading(false);
-  }, [userId]);
+  }, [userId, sb]);
 
-  // Initial load
+  // Initial load (defer to avoid synchronous setState in effect)
   useEffect(() => {
-    fetchNotifications();
+    const id = setTimeout(() => fetchNotifications(), 0);
+    return () => clearTimeout(id);
   }, [fetchNotifications]);
 
   // Supabase Realtime subscription
@@ -82,7 +83,7 @@ export default function NotificationCenter({ userId }: { userId: string }) {
       .subscribe();
 
     return () => { sb.removeChannel(channel); };
-  }, [userId]);
+  }, [userId, sb]);
 
   // Close on outside click
   useEffect(() => {
@@ -111,6 +112,7 @@ export default function NotificationCenter({ userId }: { userId: string }) {
     <div className="relative" ref={ref}>
       {/* Bell button */}
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="relative flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
         aria-label="Сповіщення"
@@ -134,16 +136,20 @@ export default function NotificationCenter({ userId }: { userId: string }) {
             <div className="flex items-center gap-1">
               {unread > 0 && (
                 <button
+                  type="button"
                   onClick={markAllRead}
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition px-2 py-1 rounded hover:bg-slate-800"
+                  aria-label="Mark all as read"
                 >
                   <CheckCheckIcon className="h-3 w-3" />
                   Всі прочитані
                 </button>
               )}
               <button
+                type="button"
                 onClick={() => setOpen(false)}
                 className="text-slate-500 hover:text-slate-200 transition p-1 rounded hover:bg-slate-800"
+                aria-label="Закрити"
               >
                 <XIcon className="h-4 w-4" />
               </button>
@@ -199,8 +205,10 @@ export default function NotificationCenter({ userId }: { userId: string }) {
           {items.length > 0 && (
             <div className="px-4 py-2 border-t border-slate-800 text-center">
               <button
+                type="button"
                 onClick={markAllRead}
                 className="text-xs text-slate-500 hover:text-slate-300 transition"
+                aria-label="Mark all as read"
               >
                 Позначити всі як прочитані
               </button>

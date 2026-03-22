@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BoltIcon, CheckCircleIcon, SparklesIcon } from "lucide-react";
 import type { Agent } from "@/lib/database.types";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import SaveAgentButton from "@/components/SaveAgentButton";
 
 interface Props {
   agent: Agent & {
@@ -13,14 +14,22 @@ interface Props {
     avg_rating?:      number | null;
     review_count?:    number;
     is_boosted?:      boolean;
+    screenshots?:     string[];
   };
+  saved?: boolean;
+  isLoggedIn?: boolean;
 }
 
-export default function AgentCard({ agent }: Props) {
+export default function AgentCard({ agent, saved = false, isLoggedIn = false }: Props) {
   const price = agent.price_per_task;
+  const screenshots = agent.screenshots ?? [];
 
   return (
     <article className="group relative flex flex-col rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 transition hover:border-slate-700 hover:bg-slate-900/90 hover:shadow-xl hover:shadow-black/40">
+
+      {isLoggedIn && (
+        <SaveAgentButton agentId={agent.id} isLoggedIn initialSaved={saved} variant="card" />
+      )}
 
       {/* Badges row (top-right) */}
       <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
@@ -39,6 +48,14 @@ export default function AgentCard({ agent }: Props) {
           <VerifiedBadge uptime={agent.uptime_30d_pct} />
         )}
       </div>
+
+      {/* First screenshot or cover */}
+      {screenshots.length > 0 ? (
+        <div className="mb-3 -mx-1 -mt-1 rounded-xl overflow-hidden border border-slate-800/80">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={screenshots[0]} alt="" className="h-32 w-full object-cover bg-slate-800" />
+        </div>
+      ) : null}
 
       {/* Header */}
       <div className="flex items-start gap-3 mb-4">

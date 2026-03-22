@@ -19,23 +19,22 @@ function getStripe(): Stripe {
 async function topUpCredits(
   stripeCustomerId: string,
   usdAmountCents: number,
-  paymentIntentId: string
+  referenceId: string,
+  creditsOverride?: number
 ): Promise<void> {
   const supabase = createServiceClient();
 
-  // ── Idempotency check: skip if this payment was already processed ──────────
   const { data: existing } = await supabase
     .from("credit_transactions")
     .select("id")
-    .eq("reference_id", paymentIntentId)
+    .eq("reference_id", referenceId)
     .maybeSingle();
 
   if (existing) {
-    console.log(`[Stripe webhook] Skipping duplicate payment: ${paymentIntentId}`);
+    console.log(`[Stripe webhook] Skipping duplicate payment: ${referenceId}`);
     return;
   }
 
-  // Find the profile by Stripe customer ID
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, balance")
@@ -46,10 +45,10 @@ async function topUpCredits(
     throw new Error(`Profile not found for customer ${stripeCustomerId}`);
   }
 
-  // $1.00 (100 cents) → 100 credits
-  const creditsToAdd = Math.floor((usdAmountCents / 100) * USD_TO_CREDITS);
+  const creditsToAdd = creditsOverride != null && creditsOverride > 0
+    ? creditsOverride
+    : Math.floor((usdAmountCents / 100) * USD_TO_CREDITS);
 
-  // Atomic balance update + transaction log
   const [updateRes, txnRes] = await Promise.all([
     supabase
       .from("profiles")
@@ -59,7 +58,7 @@ async function topUpCredits(
       profile_id:   profile.id,
       amount:       creditsToAdd,
       type:         "purchase",
-      reference_id: paymentIntentId,
+      reference_id: referenceId,
       description:  `Top-up: ${creditsToAdd} credits ($${(usdAmountCents / 100).toFixed(2)})`,
     }),
   ]);
@@ -67,7 +66,7 @@ async function topUpCredits(
   if (updateRes.error) throw updateRes.error;
   if (txnRes.error)    throw txnRes.error;
 
-  console.log(`[Stripe webhook] Credited ${creditsToAdd} to ${profile.id} (${paymentIntentId})`);
+  console.log(`[Stripe webhook] Credited ${creditsToAdd} to ${profile.id} (${referenceId})`);
 }
 
 // ── Webhook handler ───────────────────────────────────────────────────────────
@@ -93,18 +92,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     switch (event.type) {
 
-      // ── One-time credit purchase (Checkout Session) ──────────────────────
+      // ── One-time credit purchase or subscription fallback (Checkout Session) ──
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.payment_status !== "paid") break;
-        if (!session.customer || !session.amount_total) break;
+        if (!session.customer) break;
+
+        const referenceId = (session.payment_intent as string) ?? session.id;
+        const amountTotal = session.amount_total ?? 0;
+        const metadataCredits = session.metadata?.credits ? parseInt(String(session.metadata.credits), 10) : undefined;
 
         await topUpCredits(
           String(session.customer),
-          session.amount_total,
-          session.payment_intent as string
+          amountTotal,
+          referenceId,
+          metadataCredits
         );
+
+        // Fallback subscription: update tier when no Stripe subscription (one-time plan purchase)
+        const tier = session.metadata?.tier as string | undefined;
+        if (tier && ["starter", "pro", "agency"].includes(tier)) {
+          const billing = session.metadata?.billing as string | undefined;
+          const months = billing === "annual" ? 12 : 1;
+          const ends = new Date();
+          ends.setMonth(ends.getMonth() + months);
+          const supabase = createServiceClient();
+          await supabase
+            .from("profiles")
+            .update({
+              subscription_tier: tier,
+              subscription_ends: ends.toISOString(),
+            })
+            .eq("stripe_customer_id", String(session.customer));
+        }
         break;
       }
 
@@ -191,7 +212,4 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-// Disable body parsing — we need the raw body for signature verification
-export const config = {
-  api: { bodyParser: false },
-};
+// App Router: raw body is read via req.text() above; no config needed.

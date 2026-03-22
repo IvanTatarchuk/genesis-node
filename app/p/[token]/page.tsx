@@ -39,10 +39,10 @@ export default async function SharedPipelinePage({ params }: Props) {
 
   if (!pipeline) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const steps  = (pipeline.steps as any[]) ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const owner  = pipeline.profiles as any;
+  type Step = { agent_id?: string; agent_name?: string; description?: string; order?: number };
+  const steps  = ((pipeline.steps as unknown) as Step[]) ?? [];
+  const rawOwner = pipeline.profiles;
+  const owner = Array.isArray(rawOwner) ? rawOwner[0] : rawOwner;
   const forks  = (pipeline as unknown as { fork_count: number }).fork_count ?? 0;
 
   return (
@@ -77,7 +77,7 @@ export default async function SharedPipelinePage({ params }: Props) {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-300">Pipeline Steps ({steps.length})</h2>
           <div className="space-y-2">
-            {steps.map((step: { agent_id?: string; agent_name?: string; description?: string; order?: number }, i: number) => (
+            {steps.map((step, i) => (
               <div key={i} className="flex items-start gap-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
                   {i + 1}

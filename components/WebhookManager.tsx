@@ -30,8 +30,6 @@ export default function WebhookManager() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
 
-  useEffect(() => { load(); }, []);
-
   async function load() {
     setLoading(true);
     const res = await fetch("/api/webhooks/manage");
@@ -39,6 +37,11 @@ export default function WebhookManager() {
     setWebhooks(data.webhooks ?? []);
     setLoading(false);
   }
+
+  useEffect(() => {
+    const id = setTimeout(() => load(), 0);
+    return () => clearTimeout(id);
+  }, []);
 
   async function handleAdd() {
     if (!url.startsWith("https://")) {
@@ -194,13 +197,13 @@ export default function WebhookManager() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => handleToggle(wh)} title={wh.is_active ? "Disable" : "Enable"}>
+                  <button type="button" onClick={() => handleToggle(wh)} title={wh.is_active ? "Disable" : "Enable"} aria-label={wh.is_active ? "Disable webhook" : "Enable webhook"}>
                     {wh.is_active
                       ? <ToggleRight className="h-5 w-5 text-indigo-400 hover:text-indigo-300" />
                       : <ToggleLeft  className="h-5 w-5 text-slate-600 hover:text-slate-400" />
                     }
                   </button>
-                  <button onClick={() => handleDelete(wh.id)} title="Delete">
+                  <button type="button" onClick={() => handleDelete(wh.id)} title="Delete" aria-label="Delete webhook">
                     <Trash2 className="h-4 w-4 text-slate-600 hover:text-red-400 transition" />
                   </button>
                 </div>

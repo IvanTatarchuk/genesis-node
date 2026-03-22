@@ -3,11 +3,11 @@ import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-
 import type { Profile } from "@/lib/database.types";
 import { rateLimit, CHECKOUT_RATE_LIMIT, getClientIp } from "@/lib/rate-limit";
 
-// Credit packs: credits → price in cents
+// Credit packs: credits → price in cents (3× previous prices)
 const CREDIT_PRICES: Record<number, number> = {
-  500:  500,   // $5.00
-  2000: 2000,  // $20.00
-  5000: 5000,  // $50.00
+  500:  1500,   // $15.00
+  2000: 6000,   // $60.00
+  5000: 15000,  // $150.00
 };
 
 function getStripe() {

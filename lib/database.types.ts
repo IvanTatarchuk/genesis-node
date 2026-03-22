@@ -13,7 +13,7 @@ export type Json =
 
 export type TaskStatus        = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type LogType           = "thought" | "action" | "result" | "error" | "system";
-export type TxnType           = "purchase" | "task_charge" | "refund" | "bonus" | "boost" | "reward" | "welcome";
+export type TxnType           = "purchase" | "task_charge" | "refund" | "bonus" | "boost" | "reward" | "welcome" | "donation";
 export type UserRole          = "dev" | "client";
 export type SubscriptionTier  = "free" | "starter" | "pro" | "agency";
 
@@ -40,6 +40,7 @@ export interface Database {
           trinity_viewer_active:           boolean;
           trinity_viewer_subscription_id:  string | null;
           trinity_viewer_ends:             string | null;
+          verified_developer:             boolean;
           created_at:                      string;
           updated_at:                      string;
         };
@@ -69,6 +70,7 @@ export interface Database {
           health_status:          string | null;
           health_checked_at:      string | null;
           verified:               boolean;
+          screenshots:            string[];
           created_at:             string;
           updated_at:             string;
         };

@@ -76,9 +76,11 @@ export default async function DevProfilePage({ params }: Props) {
               <h1 className="text-2xl font-bold text-slate-100">
                 {profile.display_name ?? "Anonymous Developer"}
               </h1>
-              <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2.5 py-0.5 text-xs font-medium text-indigo-300">
-                Verified Dev
-              </span>
+              {(profile as { verified_developer?: boolean }).verified_developer && (
+                <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2.5 py-0.5 text-xs font-medium text-indigo-300">
+                  Verified developer
+                </span>
+              )}
             </div>
             <p className="mt-1 text-sm text-slate-500">
               Member since {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}

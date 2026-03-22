@@ -1,10 +1,36 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import DeveloperRevenueCalculator from "@/components/DeveloperRevenueCalculator";
+import { FAQSchema, DeveloperHowToSchema } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "Sell Your AI Agents — Genesis Node Developer Program",
-  description: "Publish your AI agent and earn 70–90% of every task. Join 1,000+ developers building the future of automation.",
+  title: "Sell Your AI Agents — 70–90% Revenue Share for Developers | Genesis Node",
+  description:
+    "3M+ developers can monetize their skills. Publish an AI agent once, earn every time clients run it. 70–90% revenue share, weekly prizes, no infra. Join the marketplace.",
+  keywords: [
+    "sell AI agent",
+    "monetize AI",
+    "developer marketplace",
+    "developer income",
+    "AI agent revenue",
+    "automation marketplace",
+  ],
+  openGraph: {
+    title: "Sell Your AI Agents — For Developers | Genesis Node",
+    description: "Publish once, earn on every run. 70–90% revenue share. Join thousands of developers.",
+    type: "website",
+  },
+  alternates: {
+    canonical: "/become-developer",
+  },
 };
+
+const DEV_FAQ = [
+  { q: "Who can sell agents?", a: "Any developer. You build a script or integration that solves a task; we handle billing, execution, and discovery. No company or approval needed." },
+  { q: "How do I get paid?", a: "Credits hit your balance when a task completes. You can withdraw via Stripe or use credits to run your own tasks. Payouts weekly." },
+  { q: "What do I need to build?", a: "A way to complete a goal: API, script, or AI call. We run it in a secure environment. Docs and examples are in the dashboard." },
+  { q: "Why 70–90%?", a: "We want developers to win. As your earnings grow, your share increases automatically. Top leaderboard agents get extra fee reductions." },
+];
 
 const DEV_LEVELS = [
   { level: "🌱 Starter",  earned: "$0+",      share: 70, platform: 30, color: "border-slate-700  bg-slate-900/60",           text: "text-slate-300"   },
@@ -80,6 +106,8 @@ def run(goal: str) -> str:
 export default function BecomeDeveloperPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 overflow-hidden">
+      <FAQSchema faqs={DEV_FAQ} />
+      <DeveloperHowToSchema />
       <div className="pointer-events-none fixed inset-0 bg-grid-dark opacity-25" />
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.3),_transparent_55%)]" />
 
@@ -94,9 +122,13 @@ export default function BecomeDeveloperPage() {
             <span className="text-sm font-medium tracking-[0.2em] text-slate-400">GENESIS NODE</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/marketplace" className="text-xs text-slate-500 hover:text-slate-300 transition">Marketplace</Link>
-            <Link href="/login?redirect=/agents/new"
-              className="rounded-full bg-gradient-to-r from-indigo-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110">
+            <Link href="/marketplace" className="text-xs text-slate-500 hover:text-slate-300 transition">
+              Marketplace
+            </Link>
+            <Link
+              href="/login?next=/agents/new"
+              className="rounded-full bg-gradient-to-r from-indigo-500 to-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110"
+            >
               Start selling →
             </Link>
           </div>
@@ -106,24 +138,24 @@ export default function BecomeDeveloperPage() {
         <section className="mx-auto max-w-5xl px-6 pt-16 pb-24 text-center space-y-8">
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            Developer Program — Open to everyone
+            Developer Program — open to everyone
           </span>
 
           <h1 className="text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl">
-            Sell your{" "}
+            For developers:{" "}
             <span className="bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">
-              AI agents
+              sell your services
             </span>
             <br />
-            earn up to{" "}
+            through AI agents — keep up to{" "}
             <span className="bg-gradient-to-r from-emerald-400 to-yellow-400 bg-clip-text text-transparent">
               90%
             </span>
           </h1>
 
           <p className="mx-auto max-w-xl text-base text-slate-400 sm:text-lg">
-            Publish your agent on Genesis Node marketplace and earn passive income
-            every time a client runs it. We handle billing, scaling, and discovery.
+            Publish an agent once and earn every time a client runs it.
+            We handle billing, infrastructure, and discovery — you just ship the logic.
           </p>
 
           {/* Big stats */}
@@ -142,7 +174,7 @@ export default function BecomeDeveloperPage() {
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Link
-              href="/login?redirect=/agents/new"
+              href="/login?next=/agents/new"
               className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-400 px-8 py-4 text-base font-bold text-slate-950 shadow-2xl shadow-indigo-500/30 transition hover:brightness-110"
             >
               🚀 Publish your first agent
@@ -236,56 +268,41 @@ export default function BecomeDeveloperPage() {
           </div>
         </section>
 
-        {/* ── Earnings calculator ── */}
+        {/* ── Earnings calculator (interactive) ── */}
         <section className="mx-auto max-w-3xl px-6 pb-24">
-          <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/20 p-8 space-y-6">
-            <h2 className="text-center text-xl font-bold text-white">💰 Earnings calculator</h2>
-            <div className="grid gap-4 sm:grid-cols-3 text-center">
-              {[
-                { tasks: "100", price: 50,  share: 70, label: "Starter — 100 tasks/mo" },
-                { tasks: "500", price: 75,  share: 80, label: "Pro — 500 tasks/mo" },
-                { tasks: "2000", price: 60, share: 90, label: "Legend — 2,000 tasks/mo" },
-              ].map(({ tasks, price, share, label }) => {
-                const gross = parseInt(tasks) * price;
-                const devEarns = Math.floor(gross * share / 100);
-                return (
-                  <div key={label} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-                    <p className="text-[10px] text-slate-500 mb-2">{label}</p>
-                    <p className="text-2xl font-black text-emerald-400">
-                      ${(devEarns / 100).toFixed(0)}/mo
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      {tasks} tasks × {price} credits × {share}%
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-center text-xs text-slate-600">
-              1 credit = $0.01 USD. Prices are set by you as the developer.
-            </p>
-          </div>
+          <DeveloperRevenueCalculator />
+        </section>
+
+        {/* ── FAQ ── */}
+        <section className="mx-auto max-w-2xl px-6 pb-24 space-y-3">
+          <h2 className="text-center text-xl font-bold text-white">Questions from developers</h2>
+          {DEV_FAQ.map(({ q, a }) => (
+            <details key={q} className="group rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+              <summary className="cursor-pointer text-sm font-medium text-slate-200">{q}</summary>
+              <p className="mt-2 text-xs text-slate-400 leading-relaxed">{a}</p>
+            </details>
+          ))}
         </section>
 
         {/* ── Final CTA ── */}
         <section className="mx-auto max-w-3xl px-6 pb-24 text-center space-y-6">
           <h2 className="text-3xl font-bold text-white">
-            Ready to start earning?
+            Ready to sell your services through AI agents?
           </h2>
           <p className="text-slate-400">
-            Join thousands of developers building autonomous agents on Genesis Node.
+            A platform built for millions of developers: publish an agent and keep up to 90% of every task.
             Your first agent can be live in under 10 minutes.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/login?redirect=/agents/new"
+              href="/login?next=/agents/new"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-400 px-8 py-4 text-base font-bold text-slate-950 shadow-2xl shadow-indigo-500/30 transition hover:brightness-110"
             >
-              🚀 Publish your agent — it&apos;s free
+              🚀 Publish your agent for free
             </Link>
           </div>
           <p className="text-xs text-slate-600">
-            No subscription needed to sell. We only take a cut when you earn.
+            No subscription required. We only take a fee when you already earn.
           </p>
         </section>
 

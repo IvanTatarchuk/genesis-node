@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 
 const BOOST_PLANS = {
@@ -45,8 +45,7 @@ export async function POST(req: NextRequest) {
   boostUntil.setDate(boostUntil.getDate() + boost.days);
 
   // Deduct credits and activate boost
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sba = sb as any;
+  const sba = sb as ReturnType<typeof createServiceClient>;
   await sba.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
   await sba.from("agents").update({
     is_boosted: true,

@@ -59,7 +59,7 @@ export default function ReviewSection({
   const router = useRouter();
 
   async function submit() {
-    if (rating === 0) { setError("Please select a rating"); return; }
+    if (rating === 0) { setError("Please choose a rating so others can see your feedback."); return; }
     setSubmitting(true);
     setError(null);
     try {
@@ -70,12 +70,12 @@ export default function ReviewSection({
       });
       if (!res.ok) {
         const d = await res.json();
-        throw new Error(d.error ?? "Failed to submit review");
+        throw new Error(d.error ?? "We couldn't save your review. Please try again.");
       }
       setShowForm(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error");
+      setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -111,12 +111,13 @@ export default function ReviewSection({
           {[5, 4, 3, 2, 1].map((star) => {
             const count = reviews.filter((r) => r.rating === star).length;
             const pct = reviewCount > 0 ? (count / reviewCount) * 100 : 0;
+            const h = Math.max(4, Math.min(100, Math.round(pct)));
+            const step = h <= 4 ? 4 : Math.round(h / 5) * 5;
             return (
               <div key={star} className="space-y-1">
                 <div className="flex h-16 items-end justify-center">
                   <div
-                    className="w-5 rounded-t bg-indigo-500/60 transition-all"
-                    style={{ height: `${Math.max(4, pct)}%` }}
+                    className={`w-5 rounded-t bg-indigo-500/60 transition-all review-bar-${step}`}
                   />
                 </div>
                 <p className="text-[10px] text-slate-500">★{star}</p>

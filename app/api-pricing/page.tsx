@@ -29,7 +29,7 @@ const PLANS = [
   {
     id:       "pro",
     name:     "Pro",
-    price:    29,
+    price:    87,
     period:   "/month",
     color:    "indigo",
     features: [
@@ -49,7 +49,7 @@ const PLANS = [
   {
     id:       "agency",
     name:     "Agency",
-    price:    99,
+    price:    297,
     period:   "/month",
     color:    "violet",
     features: [
@@ -201,10 +201,10 @@ export default function ApiPricingPage() {
           <h2 className="text-2xl font-bold text-white mb-6">Pay-As-You-Go Credit Packs</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { credits: 500,   price: 5,   label: "Starter",  bonus: "" },
-              { credits: 2200,  price: 20,  label: "Growth",   bonus: "+200 bonus" },
-              { credits: 6000,  price: 50,  label: "Scale",    bonus: "+1000 bonus" },
-              { credits: 15000, price: 100, label: "Business", bonus: "+3000 bonus" },
+              { credits: 500,   price: 15,   label: "Starter",  bonus: "" },
+              { credits: 2200,  price: 60,  label: "Growth",   bonus: "+200 bonus" },
+              { credits: 6000,  price: 150,  label: "Scale",    bonus: "+1000 bonus" },
+              { credits: 15000, price: 300, label: "Business", bonus: "+3000 bonus" },
             ].map(({ credits, price, label, bonus }) => (
               <div key={label} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-center">
                 <div className="text-xs text-slate-500 mb-1">{label}</div>

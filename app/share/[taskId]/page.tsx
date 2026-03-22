@@ -149,18 +149,52 @@ export default async function SharePage({ params }: Props) {
             <ShareCardClient taskId={task.id} goal={task.goal} agentName={agent?.name ?? "AI Agent"} />
 
             {agent && (
-              <div className="pt-2 border-t border-slate-800">
-                <p className="text-xs text-slate-500 mb-3">
+              <div className="pt-2 border-t border-slate-800 space-y-3">
+                <p className="text-xs text-slate-500 mb-2">
                   Want to run this agent yourself?
                 </p>
-                <Link
-                  href={`/agents/${agent.slug}`}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110"
-                >
-                  🚀 Deploy {agent.name} →
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/agents/${agent.slug}`}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110"
+                  >
+                    🚀 Deploy {agent.name} →
+                  </Link>
+                  <Link
+                    href={`/login?next=/agents/${agent.slug}&utm_source=share`}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/80 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+                  >
+                    Sign up free — 50 credits to start
+                  </Link>
+                </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* CTA strip — bring viewers to platform */}
+        <div className="mt-8 rounded-2xl border border-indigo-500/30 bg-indigo-950/30 px-6 py-5 text-center">
+          <p className="text-sm font-semibold text-white mb-1">Run your first agent in 60 seconds — free</p>
+          <p className="text-xs text-slate-400 mb-4">No signup to try the demo. Create an account for 50 free credits and full marketplace.</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/?utm_source=share&utm_campaign=try_demo#live-demo"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110"
+            >
+              Try free demo →
+            </Link>
+            <Link
+              href="/login?utm_source=share&utm_campaign=signup"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-slate-800/80 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+            >
+              Sign up — 50 credits
+            </Link>
+            <Link
+              href="/marketplace?utm_source=share"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-2.5 text-sm text-slate-400 hover:text-white hover:border-slate-600 transition"
+            >
+              Browse agents
+            </Link>
           </div>
         </div>
 

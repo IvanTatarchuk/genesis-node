@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 
 interface SeoIssue {
   severity: "critical" | "warning" | "ok";
@@ -50,7 +51,7 @@ function ScoreRing({ score }: { score: number }) {
         strokeDasharray={`${dash} ${circ}`}
         strokeLinecap="round"
         transform="rotate(-90 40 40)"
-        style={{ transition: "stroke-dasharray 0.8s ease" }}
+        className="transition-[stroke-dasharray] duration-[0.8s] ease-[ease]"
       />
       <text
         x="40" y="45"
@@ -141,20 +142,22 @@ export default function LiveDemoSection() {
     <section className="mx-auto w-full max-w-5xl px-6 py-16">
       {/* Header */}
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
+        <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+          ⭐ Today&apos;s free agent — no signup
+        </span>
         <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
           <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-400" />
-          Live Demo — Try it now
+          Live Demo — try it now
         </span>
         <h2 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
-          Watch an agent{" "}
+          First result in{" "}
           <span className="bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
-            work in real-time
+            60 seconds
           </span>
         </h2>
         <p className="max-w-lg text-sm text-slate-400">
-          Enter any URL and our{" "}
-          <span className="text-slate-200">Web Researcher</span> agent will
-          instantly audit the page for SEO issues.
+          Enter any URL. Our{" "}
+          <span className="text-slate-200">Web Researcher</span> agent audits the page for SEO — no account needed.
         </p>
       </div>
 
@@ -294,18 +297,28 @@ export default function LiveDemoSection() {
                 ))}
               </div>
 
-              {/* CTA */}
-              <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <p className="text-xs text-slate-500">
-                  This is a <strong className="text-slate-300">free demo</strong>.
-                  Deploy the full agent for deeper analysis, backlink audits & automated fixes.
+              {/* CTA — save result & get more (non-standard conversion) */}
+              <div className="pt-4 mt-4 border-t border-slate-800 rounded-xl border border-emerald-500/20 bg-emerald-950/30 p-4 space-y-3">
+                <p className="text-sm font-medium text-slate-200">
+                  Like this? Save the result and get 3 more free scans — no credit card.
                 </p>
-                <a
-                  href="/marketplace"
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-sky-500 px-4 py-2 text-xs font-medium text-white shadow shadow-indigo-500/30 transition hover:brightness-110"
-                >
-                  Deploy full agent →
-                </a>
+                <p className="text-xs text-slate-400">
+                  Sign up to run more agents, save reports in your dashboard, and unlock full SEO audits.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href="/login?next=/marketplace"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-sky-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/30 transition hover:brightness-110"
+                  >
+                    Sign up free →
+                  </Link>
+                  <Link
+                    href="/marketplace"
+                    className="text-sm text-slate-400 hover:text-slate-200 transition"
+                  >
+                    Just browse agents
+                  </Link>
+                </div>
               </div>
             </div>
           )}
@@ -313,9 +326,10 @@ export default function LiveDemoSection() {
           {/* Error */}
           {error && (
             <div className="border-t border-slate-800 px-5 py-4">
-              <p className="text-sm text-red-400">
-                ✗ {error}
+              <p className="text-sm text-amber-300">
+                We couldn&apos;t run the scan right now. Please try again or contact support if it keeps happening.
               </p>
+              <p className="mt-1 text-xs text-slate-500">Details: {error}</p>
             </div>
           )}
         </div>

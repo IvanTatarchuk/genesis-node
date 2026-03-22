@@ -33,8 +33,8 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
         <div>
           <p className="text-sm font-semibold text-slate-100">Referral Program</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Invite friends — you <span className="text-emerald-400">both</span> get{" "}
-            <span className="text-emerald-400 font-medium">200 free credits</span>
+            Share with people who&apos;d benefit — you <span className="text-emerald-400">both</span> get{" "}
+            <span className="text-emerald-400 font-medium">200 free credits</span>. No spam, just a link.
           </p>
         </div>
         <span className="text-2xl">🎁</span>

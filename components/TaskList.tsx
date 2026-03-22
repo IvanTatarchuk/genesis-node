@@ -36,12 +36,13 @@ export default function TaskList({ tasks }: { tasks: Task[] }) {
   if (tasks.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center">
-        <p className="text-sm text-slate-500">No tasks yet.</p>
+        <p className="text-sm text-slate-400">You haven&apos;t run any tasks yet.</p>
+        <p className="mt-1 text-xs text-slate-500">When you do, they&apos;ll show up here. Ready to try? Pick an agent and set a goal.</p>
         <Link
           href="/marketplace"
-          className="mt-3 inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm text-indigo-400 font-medium hover:text-indigo-300 transition"
         >
-          Browse agents <ArrowRight className="h-3 w-3" />
+          Browse agents <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
     );

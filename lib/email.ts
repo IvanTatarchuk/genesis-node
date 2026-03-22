@@ -19,16 +19,19 @@ export async function sendTaskCompleteEmail(opts: {
   agentName: string;
   creditsCharged: number;
   elapsedSecs?: number;
+  isFirstTask?: boolean;
 }) {
   if (!process.env.RESEND_API_KEY) return; // silently skip if not configured
 
-  const shareUrl = `${process.env.NEXTAUTH_URL ?? "https://agents-dev-roan.vercel.app"}/share/${opts.taskId}`;
-  const dashUrl  = `${process.env.NEXTAUTH_URL ?? "https://agents-dev-roan.vercel.app"}/tasks/${opts.taskId}`;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXTAUTH_URL ?? "https://agents-dev-roan.vercel.app";
+  const shareUrl = `${baseUrl}/share/${opts.taskId}`;
+  const dashUrl  = `${baseUrl}/tasks/${opts.taskId}`;
+  const marketplaceUrl = `${baseUrl}/marketplace`;
 
   await getResend().emails.send({
     from: FROM,
     to: opts.to,
-    subject: `✅ Task completed: "${opts.goal.slice(0, 60)}"`,
+    subject: opts.isFirstTask ? `🎉 Your first task is done — ${opts.goal.slice(0, 40)}…` : `✅ Task completed: "${opts.goal.slice(0, 60)}"`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -70,6 +73,13 @@ export async function sendTaskCompleteEmail(opts: {
           </tr>` : ""}
         </table>
 
+        ${opts.isFirstTask ? `
+        <div style="margin-top:20px;padding:16px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:12px">
+          <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#86efac">🎉 First task done!</p>
+          <p style="margin:0;font-size:13px;color:#94a3b8;line-height:1.5">You have 50 free credits to run more agents. Try the marketplace or run the same agent again.</p>
+          <a href="${marketplaceUrl}" style="display:inline-block;margin-top:12px;background:#22c55e;color:#022c22;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600">Browse agents →</a>
+        </div>` : ""}
+
         <!-- CTAs -->
         <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
           <a href="${dashUrl}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff;text-decoration:none;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600">
@@ -85,7 +95,7 @@ export async function sendTaskCompleteEmail(opts: {
     <!-- Footer -->
     <p style="margin-top:32px;font-size:11px;color:#334155;text-align:center">
       You received this because you have an account at Genesis Node.<br>
-      <a href="${process.env.NEXTAUTH_URL}/dashboard" style="color:#475569;text-decoration:none">Manage notifications</a>
+      <a href="${baseUrl}/dashboard" style="color:#475569;text-decoration:none">Manage notifications</a>
     </p>
   </div>
 </body>

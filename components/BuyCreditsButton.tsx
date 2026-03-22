@@ -4,9 +4,9 @@ import { useState } from "react";
 import { BoltIcon } from "lucide-react";
 
 const PACKS = [
-  { label: "500 credits",   amount: 500,  price: "$5"  },
-  { label: "2,000 credits", amount: 2000, price: "$20" },
-  { label: "5,000 credits", amount: 5000, price: "$50" },
+  { label: "500 credits",   amount: 500,  price: "$15"  },
+  { label: "2,000 credits", amount: 2000, price: "$60" },
+  { label: "5,000 credits", amount: 5000, price: "$150" },
 ];
 
 export default function BuyCreditsButton() {
@@ -21,8 +21,14 @@ export default function BuyCreditsButton() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credits: amount }),
       });
-      const { url } = await res.json();
-      if (url) window.location.href = url;
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) window.location.href = "/login?next=/dashboard";
+        else alert(data.error ?? "We couldn't start checkout. Please try again or contact support.");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+      else alert("Something went wrong on our side. Please try again or contact support.");
     } finally {
       setLoading(null);
     }

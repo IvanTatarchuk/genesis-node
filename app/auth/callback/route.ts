@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         const { data: wallet } = await service.from("matadora_wallets").select("balance,total_earned").eq("profile_id", referrer.id).single() as { data: { balance: number; total_earned: number } | null };
         await service.from("matadora_wallets").upsert({ profile_id: referrer.id, balance: (wallet?.balance ?? 0) + 200, total_earned: (wallet?.total_earned ?? 0) + 200, updated_at: new Date().toISOString() }, { onConflict: "profile_id" });
         await service.from("matadora_transactions").insert({ profile_id: referrer.id, amount: 200, type: "referral", description: "Referral signup bonus", reference_id: user.id });
-        await service.from("referrals").update({ matadora_rewarded: true }).eq("referrer_id", referrer.id).eq("referred_id", user.id });
+        await service.from("referrals").update({ matadora_rewarded: true }).eq("referrer_id", referrer.id).eq("referred_id", user.id);
       }
     } catch (e) {
       console.error("[auth/callback] referral apply failed", e);

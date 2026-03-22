@@ -69,12 +69,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (newStatus === "completed") {
     await service.rpc("update_streak", { p_user_id: record.client_id });
-    // Fire webhooks + email in parallel (don't await webhook to not block)
+    const { count } = await service
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", record.client_id)
+      .eq("status", "completed");
+    const isFirstTask = (count ?? 0) === 1;
     void deliverWebhooks("task.completed", webhookPayload);
     await sendTaskCompleteEmail({
       to: user.email, userName,
       taskId: task.id, goal: task.goal, agentName,
       creditsCharged: task.credits_charged, elapsedSecs,
+      isFirstTask,
     });
   } else if (newStatus === "failed") {
     if (record.pipeline_execution_id) {

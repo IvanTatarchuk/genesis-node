@@ -38,6 +38,8 @@ export default function RegisterAgentForm({ creatorId }: Props) {
   const [categorySlug,    setCategorySlug]    = useState("");
   const [tags,            setTags]            = useState<string[]>([]);
   const [customTag,       setCustomTag]       = useState("");
+  const [screenshots,     setScreenshots]    = useState<string[]>([]);
+  const [screenshotUrl,   setScreenshotUrl]   = useState("");
   const [error,           setError]           = useState("");
   const [submitting,      setSubmitting]      = useState(false);
 
@@ -92,19 +94,20 @@ export default function RegisterAgentForm({ creatorId }: Props) {
           },
           price_per_task: pricePerTask,
           tags,
+          screenshots: screenshots.length > 0 ? screenshots : undefined,
         }),
       });
 
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error ?? "Something went wrong.");
+        setError(json.error ?? "We couldn't save the agent. Please check the form and try again.");
         return;
       }
 
       router.push(`/dashboard?registered=${json.agent.slug}`);
     } catch {
-      setError("Network error. Please try again.");
+      setError("Connection issue. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -139,12 +142,52 @@ export default function RegisterAgentForm({ creatorId }: Props) {
         </Field>
       </div>
 
+      {/* Screenshots (optional) */}
+      <Field label="Screenshots" hint="URLs to images shown on the agent card and page (max 6). Use imgur, Cloudinary, or your own CDN.">
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={screenshotUrl}
+              onChange={(e) => setScreenshotUrl(e.target.value)}
+              placeholder="https://..."
+              className={inputCls + " flex-1"}
+              aria-label="Screenshot URL"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const u = screenshotUrl.trim();
+                if (u && screenshots.length < 6 && !screenshots.includes(u)) {
+                  setScreenshots((p) => [...p, u]);
+                  setScreenshotUrl("");
+                }
+              }}
+              className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700"
+            >
+              Add
+            </button>
+          </div>
+          {screenshots.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {screenshots.map((url, i) => (
+                <li key={i} className="flex items-center gap-1 rounded border border-slate-700 bg-slate-900/60 px-2 py-1 text-xs">
+                  <span className="max-w-[120px] truncate text-slate-400">{url}</span>
+                  <button type="button" onClick={() => setScreenshots((p) => p.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300" aria-label="Remove">×</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Field>
+
       {/* Category */}
       <Field label="Category" hint="Helps clients find your agent in the marketplace">
         <select
           value={categorySlug}
           onChange={(e) => setCategorySlug(e.target.value)}
           className={inputCls}
+          aria-label="Category"
         >
           <option value="">Select a category…</option>
           {CATEGORIES.map((c) => (
@@ -203,6 +246,9 @@ export default function RegisterAgentForm({ creatorId }: Props) {
               value={pricePerTask}
               onChange={(e) => setPricePerTask(Math.max(10, Number(e.target.value)))}
               className={inputCls + " pl-9"}
+              aria-label="Price per task in credits"
+              placeholder="100"
+              title="Price per task in credits"
             />
           </div>
           <span className="shrink-0 text-sm text-slate-500">
@@ -280,6 +326,7 @@ export default function RegisterAgentForm({ creatorId }: Props) {
                   type="button"
                   onClick={() => setTags((prev) => prev.filter((t) => t !== tag))}
                   className="hover:text-red-400 transition"
+                  aria-label={`Remove tag ${tag}`}
                 >
                   <TrashIcon className="h-2.5 w-2.5" />
                 </button>

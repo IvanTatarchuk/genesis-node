@@ -7,7 +7,7 @@ interface Message { role: "user" | "assistant"; content: string }
 
 const WELCOME: Message = {
   role: "assistant",
-  content: "Hi! I'm the AGENTS.DEV support AI. I can help with billing, agents, API, MATADORA currency, and anything else about the platform. What do you need?",
+  content: "Hi! I'm the AGENTS.DEV support AI. I can help with billing, agents, API, MATADORA currency, and anything else about the platform. What's on your mind?",
 };
 
 export default function SupportChat() {
@@ -134,9 +134,11 @@ export default function SupportChat() {
           className="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 outline-none focus:border-indigo-500 max-h-32"
         />
         <button
+          type="button"
           onClick={() => sendMessage()}
           disabled={!input.trim() || loading}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 transition"
+          aria-label="Send message"
         >
           <Send className="h-4 w-4 text-white" />
         </button>

@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase-server";
+import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import AgentCard from "@/components/AgentCard";
 import MarketplaceSearch from "@/components/MarketplaceSearch";
@@ -25,6 +25,7 @@ const CATEGORIES = [
 
 const SORT_OPTIONS = [
   { value: "popular",  label: "Most popular" },
+  { value: "trending", label: "Trending this week" },
   { value: "new",      label: "Newest" },
   { value: "rating",   label: "Top rated" },
   { value: "price_asc",label: "Cheapest first" },
@@ -43,64 +44,117 @@ export default async function MarketplacePage({
   const from = (page - 1) * PAGE_SIZE;
   const to   = from + PAGE_SIZE - 1;
 
+  const serverSupabase = await createServerSupabaseClient();
   const supabase = createServiceClient();
+  const { data: { user } } = await serverSupabase.auth.getUser();
 
-  // ── Fetch featured + stats ──────────────────────────────────────────────────
-  const [{ data: statsRaw }, { data: featuredRaw }] = await Promise.all([
-    supabase.from("marketplace_stats").select("*").single(),
-    supabase
-      .from("agents")
-      .select("id, name, slug, description, price_per_task, total_tasks_completed, avg_rating, review_count, tags, is_boosted, category_slug")
-      .eq("is_active", true)
-      .eq("is_featured", true)
-      .order("total_tasks_completed", { ascending: false })
-      .limit(3),
-  ]);
-
-  // ── Build main query with count ─────────────────────────────────────────────
-  let query = supabase
-    .from("agents")
-    .select("id, name, slug, description, price_per_task, total_tasks_completed, avg_rating, review_count, tags, is_boosted, is_featured, category_slug, created_at", { count: "exact" })
-    .eq("is_active", true);
-
-  if (q?.trim()) {
-    // Full-text search on name + description + tags
-    const term = q.trim().replace(/[%_]/g, "\\$&");
-    query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%,tags.cs.{${term}}`);
-  }
-  if (cat && cat !== "all") {
-    query = query.eq("category_slug", cat);
-  }
-  if (tag) {
-    query = query.contains("tags", [tag]);
-  }
-
-  // Sort
-  if (sort === "new") {
-    query = query.order("created_at", { ascending: false });
-  } else if (sort === "rating") {
-    query = query.order("avg_rating", { ascending: false, nullsFirst: false });
-  } else if (sort === "price_asc") {
-    query = query.order("price_per_task", { ascending: true });
-  } else if (sort === "price_desc") {
-    query = query.order("price_per_task", { ascending: false });
-  } else {
-    query = query
-      .order("is_boosted",            { ascending: false })
-      .order("is_featured",           { ascending: false })
-      .order("total_tasks_completed", { ascending: false });
-  }
-
-  const { data: agentsRaw, count: totalCount } = await query.range(from, to);
-  const totalPages = Math.ceil((totalCount ?? 0) / PAGE_SIZE);
-
-  const agents = (agentsRaw ?? []) as unknown as Array<{
+  type AgentRow = {
     id: string; name: string; slug: string; description: string;
     price_per_task: number; total_tasks_completed: number;
     avg_rating: number | null; review_count: number;
     tags: string[]; is_boosted: boolean; is_featured: boolean;
     category_slug: string | null; created_at: string;
-  }>;
+    cover_image_url?: string | null; verified?: boolean; health_status?: string | null; screenshots?: string[];
+  };
+  const agentFields = "id, name, slug, description, price_per_task, total_tasks_completed, avg_rating, review_count, tags, is_boosted, is_featured, category_slug, created_at, cover_image_url, verified, health_status, screenshots";
+
+  // ── Fetch featured, stats, saved IDs (if logged in), trending, collections ───
+  const [
+    { data: statsRaw },
+    { data: featuredRaw },
+    savedRes,
+    trendingRaw,
+    collectionsRaw,
+  ] = await Promise.all([
+    supabase.from("marketplace_stats").select("*").single(),
+    supabase.from("agents").select(agentFields).eq("is_active", true).eq("is_featured", true).order("total_tasks_completed", { ascending: false }).limit(3),
+    user ? supabase.from("saved_agents").select("agent_id").eq("user_id", user.id) : Promise.resolve({ data: [] }),
+    !q && !cat && !tag ? supabase.from("agent_analytics").select("agent_id").order("tasks_last_7d", { ascending: false }).limit(6) : Promise.resolve({ data: [] }),
+    !q && !cat && !tag && sort === "popular" ? supabase.from("collections").select("id, slug, name").order("sort_order") : Promise.resolve({ data: [] }),
+  ]);
+
+  const savedIds = new Set((savedRes?.data ?? []).map((r: { agent_id: string }) => r.agent_id));
+  const trendingIds = (trendingRaw?.data ?? []).map((r: { agent_id: string }) => r.agent_id);
+  const collections = (collectionsRaw?.data ?? []) as Array<{ id: string; slug: string; name: string }>;
+
+  const [trendingAgentsRaw, collectionAgentsRaw] = await Promise.all([
+    trendingIds.length > 0 ? supabase.from("agents").select(agentFields).in("id", trendingIds).eq("is_active", true) : Promise.resolve({ data: [] }),
+    collections.length > 0 ? supabase.from("collection_agents").select("collection_id, agent_id, position").in("collection_id", collections.map((c) => c.id)) : Promise.resolve({ data: [] }),
+  ]);
+
+  const trendingAgentsOrder = new Map(trendingIds.map((id, i) => [id, i]));
+  const trendingAgentsList = (trendingAgentsRaw?.data ?? []).sort((a: { id: string }, b: { id: string }) => (trendingAgentsOrder.get(a.id) ?? 99) - (trendingAgentsOrder.get(b.id) ?? 99));
+
+  const collectionAgentRows = (collectionAgentsRaw?.data ?? []) as Array<{ collection_id: string; agent_id: string; position: number }>;
+  const agentsByCollection = new Map<string, Array<{ id: string; pos: number }>>();
+  for (const row of collectionAgentRows) {
+    const list = agentsByCollection.get(row.collection_id) ?? [];
+    list.push({ id: row.agent_id, pos: row.position });
+    agentsByCollection.set(row.collection_id, list);
+  }
+  const collectionAgentsData = new Map<string, AgentRow[]>();
+  for (const col of collections) {
+    const entries = agentsByCollection.get(col.id) ?? [];
+    if (entries.length > 0) {
+      entries.sort((a, b) => a.pos - b.pos);
+      const ids = entries.map((e) => e.id);
+      const { data } = await supabase.from("agents").select(agentFields).in("id", ids).eq("is_active", true);
+      const byId = new Map((data ?? []).map((a: { id: string }) => [a.id, a]));
+      const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as AgentRow[];
+      collectionAgentsData.set(col.id, ordered);
+    }
+  }
+
+  let agents: AgentRow[];
+  let totalCount: number | null = null;
+
+  if (sort === "trending") {
+    const { data: trendingPage, count } = await supabase
+      .from("agent_analytics")
+      .select("agent_id", { count: "exact" })
+      .order("tasks_last_7d", { ascending: false })
+      .range(from, to);
+    totalCount = count ?? 0;
+    const orderedIds = (trendingPage ?? []).map((r: { agent_id: string }) => r.agent_id);
+    if (orderedIds.length > 0) {
+      const { data: agentsFromDb } = await supabase
+        .from("agents")
+        .select(agentFields)
+        .in("id", orderedIds)
+        .eq("is_active", true);
+      const byId = new Map((agentsFromDb ?? []).map((a: { id: string }) => [a.id, a]));
+      agents = orderedIds.map((id) => byId.get(id)).filter(Boolean) as AgentRow[];
+    } else {
+      agents = [];
+    }
+  } else {
+    let query = supabase
+      .from("agents")
+      .select(agentFields, { count: "exact" })
+      .eq("is_active", true);
+
+    if (q?.trim()) {
+      const term = q.trim().replace(/[%_]/g, "\\$&");
+      query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%,tags.cs.{${term}}`);
+    }
+    if (cat && cat !== "all") query = query.eq("category_slug", cat);
+    if (tag) query = query.contains("tags", [tag]);
+
+    if (sort === "new") query = query.order("created_at", { ascending: false });
+    else if (sort === "rating") query = query.order("avg_rating", { ascending: false, nullsFirst: false });
+    else if (sort === "price_asc") query = query.order("price_per_task", { ascending: true });
+    else if (sort === "price_desc") query = query.order("price_per_task", { ascending: false });
+    else query = query.order("is_boosted", { ascending: false }).order("is_featured", { ascending: false }).order("total_tasks_completed", { ascending: false });
+
+    const { data: agentsRaw, count } = await query.range(from, to);
+    totalCount = count ?? 0;
+    agents = (agentsRaw ?? []) as AgentRow[];
+  }
+
+  const totalPages = Math.ceil((totalCount ?? 0) / PAGE_SIZE);
+
+  const trendingAgents = trendingAgentsList as AgentRow[];
+  const collectionAgentsMap = collectionAgentsData as Map<string, AgentRow[]>;
 
   const stats = statsRaw as unknown as {
     active_agents: number; total_developers: number;
@@ -108,8 +162,10 @@ export default async function MarketplacePage({
     tasks_running_now: number;
   } | null;
 
-  const featured = (featuredRaw ?? []) as typeof agents;
+  const featured = (featuredRaw ?? []) as AgentRow[];
   const showFeatured = !q && !cat && !tag && sort === "popular" && featured.length > 0;
+  const showTrending = !q && !cat && !tag && sort === "popular" && trendingAgents.length > 0;
+  const showCollections = !q && !cat && !tag && sort === "popular" && collections.length > 0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -126,6 +182,7 @@ export default async function MarketplacePage({
                 <p className="text-xs text-slate-500 mt-0.5">
                   {stats.active_agents} agents · {stats.total_tasks_run?.toLocaleString()} tasks run ·{" "}
                   <span className="text-emerald-400">{stats.tasks_running_now} running now</span>
+                  {" "}— agents form your <span className="text-slate-400">digital firm</span>, working on the platform and your goals.
                 </p>
               )}
             </div>
@@ -163,6 +220,15 @@ export default async function MarketplacePage({
               );
             })}
           </div>
+          {/* KOLOS-1 HQ tag shortcut */}
+          <div className="pt-1">
+            <Link
+              href="/marketplace?tag=kolos1-hq"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-300 hover:border-amber-400 hover:bg-amber-500/20 transition"
+            >
+              🧠 KOLOS-1 HQ agents
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -186,6 +252,40 @@ export default async function MarketplacePage({
           </section>
         )}
 
+        {/* ── Trending this week ── */}
+        {showTrending && (
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="h-1 w-6 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+              <h2 className="text-sm font-semibold text-slate-200">Trending this week</h2>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {trendingAgents.map((agent) => (
+                <AgentCard key={agent.id} agent={agent as Parameters<typeof AgentCard>[0]["agent"]} saved={savedIds.has(agent.id)} isLoggedIn={!!user} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Collections ── */}
+        {showCollections && collections.map((col) => {
+          const list = collectionAgentsMap.get(col.id) ?? [];
+          if (list.length === 0) return null;
+          return (
+            <section key={col.id} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="h-1 w-6 rounded-full bg-slate-600" />
+                <h2 className="text-sm font-semibold text-slate-200">{col.name}</h2>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {list.map((agent) => (
+                  <AgentCard key={agent.id} agent={agent as Parameters<typeof AgentCard>[0]["agent"]} saved={savedIds.has(agent.id)} isLoggedIn={!!user} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
         {/* ── All agents ── */}
         <section className="space-y-4">
           {!showFeatured && (
@@ -206,18 +306,17 @@ export default async function MarketplacePage({
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="text-5xl mb-4">🔍</div>
               <p className="text-slate-400 text-lg">No agents found</p>
-              <p className="text-slate-500 text-sm mt-1">
-                {q ? `No results for "${q}". ` : ""}
+              <p className="text-slate-500 text-sm mt-1 max-w-sm">
+                {q ? `No results for "${q}". Try a different search or ` : "New agents are added often. "}
                 <Link href="/become-developer" className="text-indigo-400 hover:underline">
-                  Be the first to publish one →
+                  publish your own →
                 </Link>
               </p>
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {agents.map((agent) => (
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                <AgentCard key={agent.id} agent={agent as any} />
+                <AgentCard key={agent.id} agent={agent as Parameters<typeof AgentCard>[0]["agent"]} saved={savedIds.has(agent.id)} isLoggedIn={!!user} />
               ))}
             </div>
           )}

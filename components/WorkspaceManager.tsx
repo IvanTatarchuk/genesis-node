@@ -101,7 +101,7 @@ export default function WorkspaceManager({ owned, memberOf, userId }: Props) {
             <button onClick={handleCreate} disabled={saving} className="rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 text-xs font-medium text-white transition">
               {saving ? <Loader className="h-3.5 w-3.5 animate-spin" /> : "Create"}
             </button>
-            <button onClick={() => setCreating(false)} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 transition">✕</button>
+            <button type="button" onClick={() => setCreating(false)} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 transition" aria-label="Cancel">✕</button>
           </div>
         )}
 
@@ -129,7 +129,7 @@ export default function WorkspaceManager({ owned, memberOf, userId }: Props) {
                     >
                       <Mail className="h-3 w-3" /> Invite
                     </button>
-                    <button onClick={() => handleDelete(ws.id)} className="rounded-lg border border-slate-800 p-1.5 text-slate-600 hover:text-red-400 transition">
+                    <button type="button" onClick={() => handleDelete(ws.id)} className="rounded-lg border border-slate-800 p-1.5 text-slate-600 hover:text-red-400 transition" aria-label={`Delete workspace ${ws.name}`}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -158,7 +158,7 @@ export default function WorkspaceManager({ owned, memberOf, userId }: Props) {
                     {inviteLink && (
                       <div className="flex items-center gap-2 rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-3 py-2">
                         <p className="flex-1 text-[10px] text-emerald-400 font-mono truncate">{inviteLink}</p>
-                        <button onClick={copyLink} className="shrink-0 text-emerald-400 hover:text-emerald-300">
+                        <button type="button" onClick={copyLink} className="shrink-0 text-emerald-400 hover:text-emerald-300" aria-label={copied ? "Copied" : "Copy invite link"}>
                           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                       </div>

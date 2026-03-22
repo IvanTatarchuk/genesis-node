@@ -7,16 +7,19 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-async function getTaskWithLogs(id: string): Promise<{ task: Task; logs: Log[] } | null> {
+async function getTaskWithLogs(id: string): Promise<{ task: Task; logs: Log[]; agentSlug: string | null } | null> {
   const supabase = await createServerSupabaseClient();
 
   const taskRes = await supabase
     .from("tasks")
-    .select("*")
+    .select("*, agent:agents(slug)")
     .eq("id", id)
-    .single();
+    .single() as { error: unknown; data: unknown };
 
-  if (taskRes.error) return null;
+  if (taskRes.error || !taskRes.data) return null;
+
+  const taskRow = taskRes.data as Task & { agent?: { slug: string } | null };
+  const agentSlug = taskRow.agent?.slug ?? null;
 
   const logsRes = await supabase
     .from("logs")
@@ -25,9 +28,11 @@ async function getTaskWithLogs(id: string): Promise<{ task: Task; logs: Log[] } 
     .order("timestamp", { ascending: true })
     .limit(500);
 
+  const { agent: _a, ...task } = taskRow;
   return {
-    task:  taskRes.data as unknown as Task,
+    task:  task as unknown as Task,
     logs: (logsRes.data ?? []) as unknown as Log[],
+    agentSlug,
   };
 }
 
@@ -37,11 +42,11 @@ export default async function TaskPage({ params }: Props) {
 
   if (!data) notFound();
 
-  const { task, logs } = data;
+  const { task, logs, agentSlug } = data;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <LiveStream task={task} initialLogs={logs} />
+      <LiveStream task={task} initialLogs={logs} agentSlug={agentSlug} taskGoal={task.goal} />
     </div>
   );
 }

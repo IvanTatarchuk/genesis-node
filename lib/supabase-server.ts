@@ -24,14 +24,9 @@ export async function createServerSupabaseClient() {
 }
 
 // Service-role client — bypasses RLS, only use in trusted server code.
-// Intentionally untyped so callers can cast results to their own types.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createServiceClient(): ReturnType<typeof import("@supabase/supabase-js").createClient<any>> {
-  // Dynamic require keeps the service key out of the browser bundle.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+export function createServiceClient() {
   const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createClient<any>(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }

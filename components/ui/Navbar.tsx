@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BotIcon, PlusIcon, LayoutDashboardIcon, ShoppingBagIcon, SparklesIcon, TrophyIcon, KeyIcon, RocketIcon } from "lucide-react";
+import { BotIcon, PlusIcon, LayoutDashboardIcon, ShoppingBagIcon, SparklesIcon, TrophyIcon, KeyIcon, RocketIcon, MicIcon, HeartIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/database.types";
 import NotificationCenter from "@/components/NotificationCenter";
+import VoiceNav from "@/components/VoiceNav";
+import DonateToPlatformButton from "@/components/DonateToPlatformButton";
 
 interface Props {
   profile: Profile | null;
@@ -44,6 +46,39 @@ export default function Navbar({ profile }: Props) {
             Marketplace
           </Link>
           <Link
+            href="/use-cases"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+            title="What you can do with AI agents"
+          >
+            Use cases
+          </Link>
+          {profile && (
+            <Link
+              href="/marketplace/saved"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+              title="Saved agents"
+            >
+              <HeartIcon className="h-3.5 w-3.5" />
+              Saved
+            </Link>
+          )}
+          {profile && (
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+              title="Invite friends — you both get 200 credits"
+            >
+              🎁 Invite
+            </Link>
+          )}
+          <Link
+            href="/compare"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+            title="Why us vs alternatives"
+          >
+            Compare
+          </Link>
+          <Link
             href="/pricing"
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
           >
@@ -57,6 +92,21 @@ export default function Navbar({ profile }: Props) {
             <RocketIcon className="h-3.5 w-3.5" />
             Sell agent
           </Link>
+          <VoiceNav profile={profile} />
+          <Link
+            href="/voice"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+            title="Run by voice"
+          >
+            <MicIcon className="h-3.5 w-3.5" />
+            Voice
+          </Link>
+          {profile && (
+            <DonateToPlatformButton
+              initialBalance={profile.balance}
+              onSuccess={() => router.refresh()}
+            />
+          )}
           <Link
             href="/leaderboard"
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
@@ -132,8 +182,10 @@ export default function Navbar({ profile }: Props) {
 
               {/* Avatar / sign out */}
               <button
+                type="button"
                 onClick={handleSignOut}
                 title="Sign out"
+                aria-label="Sign out"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-slate-300 ring-1 ring-slate-700 transition hover:ring-red-500/60 hover:text-red-400"
               >
                 {profile.display_name?.[0]?.toUpperCase() ?? "?"}

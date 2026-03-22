@@ -24,7 +24,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = await req.json();
   const {
     name, slug, description, long_description,
-    config_blob, price_per_task, tags, category_slug,
+    config_blob, price_per_task, tags, category_slug, screenshots,
   } = body as {
     name:             string;
     slug:             string;
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     price_per_task:   number;
     tags:             string[];
     category_slug:    string | null;
+    screenshots?:     string[];
   };
 
   // Validate required fields
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       price_per_task,
       tags:             tags ?? [],
       category_slug:    category_slug ?? null,
+      screenshots:      Array.isArray(screenshots) ? screenshots.filter((u): u is string => typeof u === "string" && u.startsWith("http")).slice(0, 6) : [],
       is_active:        true,
     })
     .select("id, name, slug")

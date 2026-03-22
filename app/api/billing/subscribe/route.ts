@@ -14,30 +14,40 @@ const PRICE_ENV: Record<string, string> = {
 };
 
 // Fallback: create a one-time price on the fly if Stripe Price IDs aren't set yet
+// (3× previous prices; credits unchanged)
 const PLAN_PRICES_CENTS: Record<string, { monthly: number; annual: number; credits: number }> = {
-  starter: { monthly: 1900, annual: 1500, credits: 2000 },
-  pro:     { monthly: 4900, annual: 3900, credits: 6000 },
-  agency:  { monthly: 9900, annual: 7900, credits: 15000 },
+  starter: { monthly: 5700,  annual: 4500,  credits: 2000 },
+  pro:     { monthly: 14700, annual: 11700, credits: 6000 },
+  agency:  { monthly: 29700, annual: 23700, credits: 15000 },
 };
 
 function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key?.startsWith("sk_")) {
+    throw new Error("Stripe is not configured. Add STRIPE_SECRET_KEY to your environment.");
+  }
   const Stripe = require("stripe");
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-02-25.clover" });
+  return new Stripe(key, { apiVersion: "2026-02-25.clover" });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { tier, billing } = await req.json() as { tier: string; billing: "monthly" | "annual" };
+    const body = await req.json().catch(() => ({}));
+    const { tier, billing } = body as { tier?: string; billing?: string };
 
-  if (!PLAN_PRICES_CENTS[tier]) {
-    return NextResponse.json({ error: "Invalid plan" }, { status: 422 });
-  }
+    if (!tier || !billing || !["monthly", "annual"].includes(billing)) {
+      return NextResponse.json({ error: "Missing or invalid tier / billing" }, { status: 422 });
+    }
+    if (!PLAN_PRICES_CENTS[tier]) {
+      return NextResponse.json({ error: "Invalid plan" }, { status: 422 });
+    }
 
   const plan = PLAN_PRICES_CENTS[tier];
   const priceKey = `${tier}_${billing}`;
@@ -115,4 +125,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Checkout failed. Please try again.";
+    console.error("[POST /api/billing/subscribe]", err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

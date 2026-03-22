@@ -6,6 +6,10 @@
   "regions": ["fra1"],
   "crons": [
     {
+      "path": "/api/cron/execute-tasks",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/leaderboard-rewards",
       "schedule": "5 0 * * 1"
     },

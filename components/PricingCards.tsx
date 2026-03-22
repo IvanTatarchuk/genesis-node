@@ -7,7 +7,7 @@ const PLANS = [
   {
     name: "Starter",
     tier: "starter",
-    price: { monthly: 19, annual: 15 },
+    price: { monthly: 57, annual: 45 },
     credits: 2000,
     description: "For individuals and indie hackers exploring AI automation.",
     features: [
@@ -24,7 +24,7 @@ const PLANS = [
   {
     name: "Pro",
     tier: "pro",
-    price: { monthly: 49, annual: 39 },
+    price: { monthly: 147, annual: 117 },
     credits: 6000,
     description: "For power users and small teams running agents daily.",
     features: [
@@ -43,7 +43,7 @@ const PLANS = [
   {
     name: "Agency",
     tier: "agency",
-    price: { monthly: 99, annual: 79 },
+    price: { monthly: 297, annual: 237 },
     credits: 15000,
     description: "For agencies and teams with high-volume automation needs.",
     features: [
@@ -65,9 +65,11 @@ const PLANS = [
 export default function PricingCards() {
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   async function subscribe(tier: string) {
+    setError(null);
     setLoading(tier);
     try {
       const res = await fetch("/api/billing/subscribe", {
@@ -77,16 +79,29 @@ export default function PricingCards() {
       });
 
       if (res.status === 401) {
-        router.push(`/login?redirect=/pricing`);
+        router.push("/login?next=/pricing");
         return;
       }
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type");
+      const isJson = contentType?.includes("application/json");
+      const data = isJson ? await res.json() : { error: `Server error (${res.status})` };
+
+      if (!res.ok) {
+        const msg = data.error ?? data.message ?? `Request failed (${res.status})`;
+        setError(msg);
+        return;
+      }
+
       if (data.url) {
         window.location.href = data.url;
-      } else {
-        alert(data.error ?? "Something went wrong");
+        return;
       }
+
+      setError(data.error ?? "Checkout could not be started. Please try again.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Network or server error. Try again.";
+      setError(msg);
     } finally {
       setLoading(null);
     }
@@ -94,6 +109,15 @@ export default function PricingCards() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-sm text-red-300 flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="shrink-0 text-red-400 hover:text-red-200" aria-label="Close">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Billing toggle */}
       <div className="flex items-center justify-center gap-3">
         <button
@@ -105,12 +129,14 @@ export default function PricingCards() {
           Monthly
         </button>
         <button
+          type="button"
           onClick={() => setBilling(billing === "monthly" ? "annual" : "monthly")}
           className={`relative inline-flex h-6 w-11 rounded-full border transition ${
             billing === "annual"
               ? "border-indigo-500 bg-indigo-600"
               : "border-slate-700 bg-slate-800"
           }`}
+          aria-label={billing === "monthly" ? "Switch to annual billing" : "Switch to monthly billing"}
         >
           <span
             className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${
@@ -205,6 +231,9 @@ export default function PricingCards() {
           Create a free account
         </a>{" "}
         and get 100 free credits.
+      </p>
+      <p className="text-center text-xs text-slate-600 mt-1">
+        Cancel anytime. Need help choosing? <a href="/support" className="text-indigo-400 hover:underline">We&apos;re here</a>.
       </p>
     </div>
   );

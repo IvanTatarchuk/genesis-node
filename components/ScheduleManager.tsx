@@ -41,8 +41,6 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
     run_at_dow:  1,
   });
 
-  useEffect(() => { load(); }, []);
-
   async function load() {
     setLoading(true);
     const res = await fetch("/api/schedules");
@@ -50,6 +48,11 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
     setSchedules(data.schedules ?? []);
     setLoading(false);
   }
+
+  useEffect(() => {
+    const id = setTimeout(() => load(), 0);
+    return () => clearTimeout(id);
+  }, []);
 
   async function handleCreate() {
     if (!form.goal.trim() || !form.agent_id) return;
@@ -110,11 +113,13 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
         <div className="rounded-xl border border-indigo-500/30 bg-slate-900/80 p-4 space-y-3">
           {/* Agent picker */}
           <div>
-            <label className="text-xs text-slate-400 mb-1 block">Agent</label>
+            <label className="text-xs text-slate-400 mb-1 block" htmlFor="schedule-agent">Agent</label>
             <select
+              id="schedule-agent"
               value={form.agent_id}
               onChange={(e) => setForm((f) => ({ ...f, agent_id: e.target.value }))}
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+              aria-label="Agent"
             >
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>{a.name} (⚡{a.price_per_task} cr)</option>
@@ -148,11 +153,13 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
           {/* Frequency + time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Frequency</label>
+              <label className="text-xs text-slate-400 mb-1 block" htmlFor="schedule-frequency">Frequency</label>
               <select
+                id="schedule-frequency"
                 value={form.frequency}
                 onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value as "daily"|"weekly"|"monthly" }))}
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+                aria-label="Frequency"
               >
                 <option value="daily">Every day</option>
                 <option value="weekly">Every week</option>
@@ -160,11 +167,13 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Run at (UTC)</label>
+              <label className="text-xs text-slate-400 mb-1 block" htmlFor="schedule-hour">Run at (UTC)</label>
               <select
+                id="schedule-hour"
                 value={form.run_at_hour}
                 onChange={(e) => setForm((f) => ({ ...f, run_at_hour: Number(e.target.value) }))}
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+                aria-label="Run at (UTC)"
               >
                 {HOURS.map((h) => (
                   <option key={h.value} value={h.value}>{h.label}</option>
@@ -175,11 +184,13 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
 
           {form.frequency === "weekly" && (
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Day of week</label>
+              <label className="text-xs text-slate-400 mb-1 block" htmlFor="schedule-dow">Day of week</label>
               <select
+                id="schedule-dow"
                 value={form.run_at_dow}
                 onChange={(e) => setForm((f) => ({ ...f, run_at_dow: Number(e.target.value) }))}
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+                aria-label="Day of week"
               >
                 {DAYS_OF_WEEK.map((d) => (
                   <option key={d.value} value={d.value}>{d.label}</option>
@@ -230,8 +241,10 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <button
+                    type="button"
                     onClick={() => setExpanded(isExpanded ? null : s.id)}
                     className="flex-1 text-left"
+                    aria-label={isExpanded ? "Collapse schedule" : "Expand schedule"}
                   >
                     <div className="flex items-center gap-2">
                       {isExpanded ? <ChevronUp className="h-3.5 w-3.5 text-slate-500" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-500" />}
@@ -254,13 +267,13 @@ export default function ScheduleManager({ agents }: { agents: AgentOption[] }) {
                   </button>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => handleToggle(s)} title={s.is_active ? "Pause" : "Resume"}>
+                    <button type="button" onClick={() => handleToggle(s)} title={s.is_active ? "Pause" : "Resume"} aria-label={s.is_active ? "Pause schedule" : "Resume schedule"}>
                       {s.is_active
                         ? <ToggleRight className="h-5 w-5 text-indigo-400 hover:text-indigo-300" />
                         : <ToggleLeft  className="h-5 w-5 text-slate-600 hover:text-slate-400" />
                       }
                     </button>
-                    <button onClick={() => handleDelete(s.id)}>
+                    <button type="button" onClick={() => handleDelete(s.id)} aria-label="Delete schedule">
                       <Trash2 className="h-4 w-4 text-slate-600 hover:text-red-400 transition" />
                     </button>
                   </div>

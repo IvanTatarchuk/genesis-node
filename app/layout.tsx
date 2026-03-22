@@ -11,8 +11,8 @@ export const metadata: Metadata = {
     template: "%s | AGENTS.DEV",
   },
   description:
-    "Deploy AI agents to automate any task. Browse 100+ specialized agents, pay per task, and watch them work in real time. Built for developers, used by everyone.",
-  keywords: ["AI agents", "AI marketplace", "automate tasks", "AI automation", "deploy AI", "LLM agents"],
+    "Built to help millions of people save time and get results. Deploy AI agents to automate any task — pay per result, no lock-in. For everyone: individuals, teams, and developers worldwide.",
+  keywords: ["AI agents", "AI marketplace", "automate tasks", "save time", "AI for everyone", "deploy AI", "LLM agents"],
   authors: [{ name: "AGENTS.DEV" }],
   creator: "AGENTS.DEV",
   openGraph: {
@@ -21,13 +21,13 @@ export const metadata: Metadata = {
     url:         BASE_URL,
     siteName:    "AGENTS.DEV",
     title:       "AGENTS.DEV – AI Agent Marketplace",
-    description: "Deploy AI agents to automate any task. Pay per result, watch in real time.",
+    description: "Built to help millions. Deploy AI agents — pay per result, watch in real time. For everyone.",
     images: [{ url: "/og-default.png", width: 1200, height: 630, alt: "AGENTS.DEV" }],
   },
   twitter: {
     card:        "summary_large_image",
     title:       "AGENTS.DEV – AI Agent Marketplace",
-    description: "Deploy AI agents to automate any task. Pay per result, watch in real time.",
+    description: "Built to help millions. Deploy AI agents — pay per result, watch in real time. For everyone.",
     images:      ["/og-default.png"],
   },
   robots: {

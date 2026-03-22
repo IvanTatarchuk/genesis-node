@@ -1,22 +1,22 @@
 #!/bin/sh
 set -e
 
-# Start ollama serve in background
+MODEL="${OLLAMA_MODEL:-llama3.2:3b}"
+echo "Starting Ollama server..."
+
+# Start ollama in foreground (Railway will health-check /api/tags)
 ollama serve &
 OLLAMA_PID=$!
 
-# Wait for server to be ready
-sleep 5
-until curl -s http://localhost:11434/api/tags > /dev/null 2>&1; do
-  sleep 2
+# Wait until ready
+sleep 3
+until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do
+  sleep 1
 done
+echo "Ollama server ready. Pulling $MODEL in background..."
 
-# Pull models — smaller for Railway RAM limits (~2GB)
-# qwen2.5:0.5b ~400MB, tinyllama ~650MB (both support tool calling)
-echo "Pulling qwen2.5:0.5b (text + tools, ~400MB)..."
-ollama pull "qwen2.5:0.5b" || true
-echo "Pulling llava (vision, ~1.5GB)..."
-ollama pull "llava" || true
+# Pull model in background so health check passes immediately
+ollama pull "$MODEL" &
 
-# Keep ollama in foreground
+echo "Ollama is live on :11434 (model pull in progress)"
 wait $OLLAMA_PID

@@ -29,8 +29,12 @@ export default function TrinityLive() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
+  async function fetchStates() {
+    const { data } = await sb.from("trinity_state").select("agent, cycle_count, health_score, last_run");
+    setStates((data ?? []) as StateRow[]);
+  }
+
   useEffect(() => {
-    // Subscribe to live cycle updates
     const channel = sb
       .channel("trinity-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "trinity_cycles" }, (payload) => {
@@ -41,14 +45,13 @@ export default function TrinityLive() {
       })
       .subscribe();
 
-    fetchStates();
-    return () => { sb.removeChannel(channel); };
+    const id = setTimeout(() => fetchStates(), 0);
+    return () => {
+      clearTimeout(id);
+      sb.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sb and fetchStates are stable
   }, []);
-
-  async function fetchStates() {
-    const { data } = await sb.from("trinity_state").select("agent, cycle_count, health_score, last_run");
-    setStates((data ?? []) as StateRow[]);
-  }
 
   // Countdown to next 3-hour mark
   useEffect(() => {

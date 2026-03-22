@@ -6,34 +6,44 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint . --max-warnings 0",
+    "db:push": "supabase db push",
+    "db:migrate-donation": "node scripts/run-donation-migration.mjs",
+    "deploy": "npx vercel --prod --yes",
+    "deploy:railway": "node scripts/deploy-railway.mjs",
+    "deploy:all": "npm run deploy && npm run deploy:railway"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@stripe/stripe-js": "^8.8.0",
-    "@supabase/ssr": "^0.8.0",
+    "@stripe/stripe-js": "^8.9.0",
+    "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.3.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.27",
-    "eslint": "^9.39.3",
+    "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.6",
-    "lucide-react": "^0.576.0",
-    "next": "^15.5.12",
-    "postcss": "^8.5.6",
+    "lucide-react": "^0.577.0",
+    "next": "^16.1.6",
+    "openai": "^6.32.0",
+    "postcss": "^8.5.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "resend": "^6.9.3",
-    "stripe": "^20.4.0",
+    "stripe": "^20.4.1",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
-    "supabase": "^2.76.15"
+    "pg": "^8.20.0",
+    "supabase": "^2.77.0"
   }
 }

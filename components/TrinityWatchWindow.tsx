@@ -46,7 +46,9 @@ export default function TrinityWatchWindow() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(paused);
 
-  pausedRef.current = paused;
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -127,6 +129,7 @@ export default function TrinityWatchWindow() {
       .subscribe();
 
     return () => { sb.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sb is stable
   }, []);
 
   // Auto-scroll to bottom
@@ -162,7 +165,7 @@ export default function TrinityWatchWindow() {
               </div>
               <div className="text-[10px] text-slate-500 space-y-0.5">
                 <div>Цикли: <span className="text-white font-medium">{state?.cycle_count ?? 0}</span></div>
-                <div>Здоров'я: <span className={`font-medium ${(state?.health_score ?? 0) > 80 ? "text-emerald-400" : "text-amber-400"}`}>{state?.health_score ?? "—"}%</span></div>
+                <div>Здоров&apos;я: <span className={`font-medium ${(state?.health_score ?? 0) > 80 ? "text-emerald-400" : "text-amber-400"}`}>{state?.health_score ?? "—"}%</span></div>
               </div>
             </button>
           );
@@ -192,16 +195,20 @@ export default function TrinityWatchWindow() {
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
           <button
+            type="button"
             onClick={() => setFilter("ALL")}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filter === "ALL" ? "bg-slate-700 text-white" : "text-slate-500 hover:text-white"}`}
+            aria-label="Show all"
           >
             Всі
           </button>
           {(["VASYLIY", "HRYHORIY", "IOANN"] as AgentKey[]).map((k) => (
             <button
               key={k}
+              type="button"
               onClick={() => setFilter(filter === k ? "ALL" : k)}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filter === k ? `bg-slate-700 ${AGENT_STYLES[k].color}` : "text-slate-500 hover:text-white"}`}
+              aria-label={`Filter by ${k}`}
             >
               {AGENT_STYLES[k].icon}
             </button>
@@ -210,14 +217,18 @@ export default function TrinityWatchWindow() {
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[10px] text-slate-600">{visibleLogs.length} подій</span>
           <button
+            type="button"
             onClick={() => setPaused((p) => !p)}
             className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${paused ? "bg-amber-500/20 text-amber-400" : "bg-slate-800 text-slate-400 hover:text-white"}`}
+            aria-label={paused ? "Resume" : "Pause"}
           >
             {paused ? "▶ Продовжити" : "⏸ Пауза"}
           </button>
           <button
+            type="button"
             onClick={() => setLogs([])}
             className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            aria-label="Clear logs"
           >
             🗑 Очистити
           </button>

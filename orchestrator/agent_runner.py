@@ -115,8 +115,6 @@ async def screenshot_base64(page: Page) -> str:
 
 async def run_task(task_id: str, goal: str, system_prompt: str):
     db = supabase()
-    ai_ollama = _ollama_client() if USE_OLLAMA else None
-    ai_claude = _claude_client() if not USE_OLLAMA else None
 
     # Mark as running
     db.table("tasks").update({

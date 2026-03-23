@@ -81,6 +81,9 @@ export default async function HomePage() {
           <Link href="/b2b-leads" className="text-sm text-slate-400 hover:text-white transition hidden lg:block">
             B2B Leads
           </Link>
+          <Link href="/lab" className="text-sm font-bold text-violet-400 hover:text-violet-300 transition hidden lg:flex items-center gap-1 border border-violet-500/30 bg-violet-500/10 rounded-full px-3 py-1">
+            ⚗️ Genesis Lab
+          </Link>
           <Link href="/construction" className="text-sm font-semibold text-yellow-400 hover:text-yellow-300 transition hidden lg:flex items-center gap-1">
             🏗️ Construction
           </Link>
@@ -420,6 +423,7 @@ export default async function HomePage() {
             <Link href="/leaderboard" className="hover:text-slate-300 transition">Leaderboard</Link>
             <Link href="/for/developers" className="hover:text-slate-300 transition">For Developers</Link>
             <Link href="/for/teams" className="hover:text-slate-300 transition">For Teams</Link>
+            <Link href="/lab" className="hover:text-violet-300 transition font-bold text-violet-400">⚗️ Genesis Lab</Link>
             <Link href="/construction" className="hover:text-yellow-400 transition font-semibold text-yellow-500">🏗️ Construction</Link>
             <Link href="/pricing" className="hover:text-slate-300 transition">Pricing</Link>
             <Link href="/login?next=/dashboard" className="hover:text-rose-300 transition">Support Genesis Node</Link>

@@ -8,7 +8,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { GitFork, Lock, Zap, ArrowRight } from "lucide-react";
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev-roan.vercel.app";
+const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
 
 interface Props { params: Promise<{ token: string }> }
 

@@ -1,4 +1,4 @@
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+﻿import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import type { Profile } from "@/lib/database.types";
 import ApiKeysManager from "@/components/ApiKeysManager";
@@ -33,7 +33,7 @@ export default async function ApiKeysPage() {
 
       {!hasAccess ? (
         <div className="rounded-2xl border border-indigo-500/30 bg-indigo-950/30 p-8 text-center space-y-4">
-          <p className="text-4xl">🔑</p>
+          <p className="text-4xl">đź”‘</p>
           <p className="text-lg font-semibold text-slate-100">API Access requires Pro or Agency plan</p>
           <p className="text-sm text-slate-400">
             Upgrade to get API keys and integrate Genesis Node agents into your own apps and workflows.
@@ -42,14 +42,14 @@ export default async function ApiKeysPage() {
             href="/pricing"
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110"
           >
-            Upgrade to Pro →
+            Upgrade to Pro â†’
           </a>
         </div>
       ) : (
         <ApiKeysManager keys={keys ?? []} />
       )}
 
-      {/* Webhooks — available for all devs */}
+      {/* Webhooks â€” available for all devs */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
         <WebhookManager />
       </div>
@@ -58,7 +58,7 @@ export default async function ApiKeysPage() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-4">
         <p className="text-sm font-semibold text-slate-200">Quick start</p>
         <pre className="rounded-xl bg-slate-950 border border-slate-800 p-4 text-xs text-slate-400 overflow-x-auto"><code>{`# Deploy an agent via API
-curl -X POST https://agents-dev-roan.vercel.app/api/v1/tasks \\
+curl -X POST https://matadora.business/api/v1/tasks \\
   -H "Authorization: Bearer gn_live_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

@@ -1,5 +1,5 @@
-/**
- * PLATFORM TOOLS v3 — Maximum capabilities for Trinity agents
+﻿/**
+ * PLATFORM TOOLS v3 â€” Maximum capabilities for Trinity agents
  * Full arsenal: infrastructure, analytics, UX, growth, revenue, notifications,
  * experiments, SQL execution, competitor intelligence, viral mechanics.
  */
@@ -12,11 +12,11 @@ function sb() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
 }
 
-const API = process.env.GENESIS_API_URL ?? "https://agents-dev-roan.vercel.app";
+const API = process.env.GENESIS_API_URL ?? "https://matadora.business";
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// VASYLIY TOOLS — Backend / Infrastructure / DevOps
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// VASYLIY TOOLS â€” Backend / Infrastructure / DevOps
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const VASYLIY_TOOLS: GrokTool[] = [
   {
@@ -167,7 +167,7 @@ export const VASYLIY_TOOLS: GrokTool[] = [
   },
   {
     name: "get_user_activity_heatmap",
-    description: "When are users most active (hours × days matrix)",
+    description: "When are users most active (hours Ă— days matrix)",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -181,9 +181,9 @@ export const VASYLIY_TOOLS: GrokTool[] = [
   },
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// HRYHORIY TOOLS — Strategy / Analytics / Growth / Revenue
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// HRYHORIY TOOLS â€” Strategy / Analytics / Growth / Revenue
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const HRYHORIY_TOOLS: GrokTool[] = [
   {
@@ -271,7 +271,7 @@ export const HRYHORIY_TOOLS: GrokTool[] = [
   },
   {
     name: "get_conversion_funnel",
-    description: "Analyze conversion at each stage: visitor→signup→first_task→paid",
+    description: "Analyze conversion at each stage: visitorâ†’signupâ†’first_taskâ†’paid",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -332,14 +332,14 @@ export const HRYHORIY_TOOLS: GrokTool[] = [
   },
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// IOANN TOOLS — UX / Content / Viral Growth / Conversion
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// IOANN TOOLS â€” UX / Content / Viral Growth / Conversion
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const IOANN_TOOLS: GrokTool[] = [
   {
     name: "get_popular_searches",
-    description: "Analyze what users search for in marketplace — unmet demand signals",
+    description: "Analyze what users search for in marketplace â€” unmet demand signals",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -385,7 +385,7 @@ export const IOANN_TOOLS: GrokTool[] = [
   },
   {
     name: "get_low_conversion_agents",
-    description: "Find agents with views but low task rate — need description rewrite",
+    description: "Find agents with views but low task rate â€” need description rewrite",
     parameters: {
       type: "object",
       properties: { limit: { type: "number" } },
@@ -418,7 +418,7 @@ export const IOANN_TOOLS: GrokTool[] = [
   },
   {
     name: "get_onboarding_stats",
-    description: "Onboarding funnel: signup→onboarding→first task dropout analysis",
+    description: "Onboarding funnel: signupâ†’onboardingâ†’first task dropout analysis",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -468,7 +468,7 @@ export const IOANN_TOOLS: GrokTool[] = [
   },
   {
     name: "get_user_journey",
-    description: "Analyze the typical path: signup → what pages → first action → churn point",
+    description: "Analyze the typical path: signup â†’ what pages â†’ first action â†’ churn point",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -486,9 +486,9 @@ export const IOANN_TOOLS: GrokTool[] = [
   },
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// EXECUTORS — Vasyliy
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// EXECUTORS â€” Vasyliy
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export async function executeVasyliyTool(name: string, args: Record<string, unknown>): Promise<string> {
   const client = sb();
@@ -551,7 +551,7 @@ export async function executeVasyliyTool(name: string, args: Record<string, unkn
       await (client as any).from("agents")
         .update({ health_status: args.status, health_checked_at: new Date().toISOString() })
         .eq("id", args.agent_id as string);
-      return `Agent ${args.agent_id} health → ${args.status}${args.note ? ` (${args.note})` : ""}`;
+      return `Agent ${args.agent_id} health â†’ ${args.status}${args.note ? ` (${args.note})` : ""}`;
     }
 
     case "bulk_update_agent_health": {
@@ -634,9 +634,9 @@ export async function executeVasyliyTool(name: string, args: Record<string, unkn
         const start = Date.now();
         const res = await axios.get(url, { timeout: 10000 });
         const ms = Date.now() - start;
-        return `✅ ${url} — HTTP ${res.status} — ${ms}ms`;
+        return `âś… ${url} â€” HTTP ${res.status} â€” ${ms}ms`;
       } catch (err: any) {
-        return `❌ ${url} — DOWN: ${err.message}`;
+        return `âťŚ ${url} â€” DOWN: ${err.message}`;
       }
     }
 
@@ -649,7 +649,7 @@ export async function executeVasyliyTool(name: string, args: Record<string, unkn
           { headers: { Authorization: `Bearer ${vToken}` } },
         );
         return res.data.deployments.map((d: any) =>
-          `[${d.state}] ${d.url} — ${d.meta?.githubCommitMessage ?? "no message"}`
+          `[${d.state}] ${d.url} â€” ${d.meta?.githubCommitMessage ?? "no message"}`
         ).join("\n");
       } catch (err: any) {
         return `Deployment check failed: ${err.message}`;
@@ -659,14 +659,14 @@ export async function executeVasyliyTool(name: string, args: Record<string, unkn
     case "trigger_vercel_redeploy": {
       try {
         const vToken = process.env.VERCEL_TOKEN;
-        if (!vToken) return "VERCEL_TOKEN not set — cannot trigger deploy";
+        if (!vToken) return "VERCEL_TOKEN not set â€” cannot trigger deploy";
         // Trigger via Vercel API
         const res = await axios.post(
           `https://api.vercel.com/v1/integrations/deploy/${process.env.VERCEL_DEPLOY_HOOK ?? ""}`,
           {},
           { headers: { Authorization: `Bearer ${vToken}` } },
         );
-        return `✅ Redeploy triggered. Reason: ${args.reason ?? "Trinity request"}. Response: ${res.status}`;
+        return `âś… Redeploy triggered. Reason: ${args.reason ?? "Trinity request"}. Response: ${res.status}`;
       } catch (err: any) {
         return `Deploy trigger failed: ${err.message}. Manual: run 'vercel deploy --prod'`;
       }
@@ -727,9 +727,9 @@ export async function executeVasyliyTool(name: string, args: Record<string, unkn
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// EXECUTORS — Hryhoriy
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// EXECUTORS â€” Hryhoriy
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export async function executeHryhoriyTool(name: string, args: Record<string, unknown>): Promise<string> {
   const client = sb();
@@ -815,7 +815,7 @@ export async function executeHryhoriyTool(name: string, args: Record<string, unk
 
     case "update_agent_pricing": {
       await (client as any).from("agents").update({ price_per_task: args.new_price }).eq("id", args.agent_id as string);
-      return `✅ Agent ${args.agent_id} price → ${args.new_price} credits. Reason: ${args.reason}`;
+      return `âś… Agent ${args.agent_id} price â†’ ${args.new_price} credits. Reason: ${args.reason}`;
     }
 
     case "create_strategic_report": {
@@ -824,7 +824,7 @@ export async function executeHryhoriyTool(name: string, args: Record<string, unk
         report_type: "strategic",
         content: `# ${args.title}\n\n## Findings\n${args.findings}\n\n## Recommendations\n${args.recommendations}\n\nPriority: ${args.priority}`,
       });
-      return `✅ Strategic report saved: "${args.title}" [${args.priority}]`;
+      return `âś… Strategic report saved: "${args.title}" [${args.priority}]`;
     }
 
     case "adjust_leaderboard_prizes": {
@@ -833,11 +833,11 @@ export async function executeHryhoriyTool(name: string, args: Record<string, unk
           .update({ credits_reward: Math.round((args.new_prize_pool_credits as number) * 0.5) })
           .eq("rank", 1);
       } catch { /* prize_tiers might not exist yet */ }
-      return `Leaderboard prize pool updated → ${args.new_prize_pool_credits} credits. Reasoning: ${args.reasoning}`;
+      return `Leaderboard prize pool updated â†’ ${args.new_prize_pool_credits} credits. Reasoning: ${args.reasoning}`;
     }
 
     case "forecast_growth": {
-      return `Forecasting based on: ${args.current_metrics}\n\nAnalysis: Use current growth rate × 3 weeks / 3 months / 1 year multipliers. Compare to similar marketplaces at same stage.`;
+      return `Forecasting based on: ${args.current_metrics}\n\nAnalysis: Use current growth rate Ă— 3 weeks / 3 months / 1 year multipliers. Compare to similar marketplaces at same stage.`;
     }
 
     case "get_conversion_funnel": {
@@ -903,7 +903,7 @@ export async function executeHryhoriyTool(name: string, args: Record<string, unk
         importance: 9,
         tags: ["goal", args.metric],
       });
-      return `✅ Goal set: ${args.metric} = ${args.target} by ${args.deadline}`;
+      return `âś… Goal set: ${args.metric} = ${args.target} by ${args.deadline}`;
     }
 
     case "analyze_pricing_sensitivity": {
@@ -943,7 +943,7 @@ export async function executeHryhoriyTool(name: string, args: Record<string, unk
       const { data: referrals } = await (client as any).from("profiles").select("referred_by").not("referred_by", "is", null);
       const { data: total } = await (client as any).from("profiles").select("id", { count: "exact", head: true });
       const k = total?.count ? (referrals?.length ?? 0) / total.count : 0;
-      return JSON.stringify({ k_factor: Math.round(k * 100) / 100, referral_signups: referrals?.length ?? 0, total_users: total?.count ?? 0, viral: k > 1 ? "🔥 VIRAL" : k > 0.5 ? "📈 Growing" : "⚠️ Below viral" }, null, 2);
+      return JSON.stringify({ k_factor: Math.round(k * 100) / 100, referral_signups: referrals?.length ?? 0, total_users: total?.count ?? 0, viral: k > 1 ? "đź”Ą VIRAL" : k > 0.5 ? "đź“ Growing" : "âš ď¸Ź Below viral" }, null, 2);
     }
 
     case "get_developer_earnings": {
@@ -961,9 +961,9 @@ export async function executeHryhoriyTool(name: string, args: Record<string, unk
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// EXECUTORS — Ioann
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// EXECUTORS â€” Ioann
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export async function executeIoannTool(name: string, args: Record<string, unknown>): Promise<string> {
   const client = sb();
@@ -989,7 +989,7 @@ export async function executeIoannTool(name: string, args: Record<string, unknow
       if (args.new_long_description) update.long_description = args.new_long_description;
       if (args.new_tags) update.tags = args.new_tags;
       await (client as any).from("agents").update(update).eq("id", args.agent_id as string);
-      return `✅ Updated description for agent ${args.agent_id}`;
+      return `âś… Updated description for agent ${args.agent_id}`;
     }
 
     case "create_platform_announcement": {
@@ -1009,14 +1009,14 @@ export async function executeIoannTool(name: string, args: Record<string, unknow
       if (notifications.length > 0) {
         await (client as any).from("notifications").insert(notifications);
       }
-      return `✅ Announcement sent to ${notifications.length} ${targetRole} users: "${args.title}"`;
+      return `âś… Announcement sent to ${notifications.length} ${targetRole} users: "${args.title}"`;
     }
 
     case "feature_best_agents": {
       const ids = args.agent_ids as string[];
       await (client as any).from("agents").update({ is_featured: false }).not("id", "is", null);
       await (client as any).from("agents").update({ is_featured: true }).in("id", ids);
-      return `✅ Featured ${ids.length} agents: ${ids.join(", ")}. Reason: ${args.reason ?? "Trinity selection"}`;
+      return `âś… Featured ${ids.length} agents: ${ids.join(", ")}. Reason: ${args.reason ?? "Trinity selection"}`;
     }
 
     case "get_low_conversion_agents": {
@@ -1038,7 +1038,7 @@ export async function executeIoannTool(name: string, args: Record<string, unknow
       const days = (args.boost_days as number) ?? 1;
       const boostUntil = new Date(Date.now() + days * 86400000).toISOString();
       await (client as any).from("agents").update({ is_boosted: true, boost_ends_at: boostUntil, is_featured: true }).in("id", ids);
-      return `✅ Boosted ${ids.length} agents for ${days} day(s) until ${boostUntil}`;
+      return `âś… Boosted ${ids.length} agents for ${days} day(s) until ${boostUntil}`;
     }
 
     case "get_onboarding_stats": {
@@ -1080,14 +1080,14 @@ export async function executeIoannTool(name: string, args: Record<string, unknow
     case "create_ab_test": {
       await (client as any).from("trinity_experiments").insert({
         experiment_name: args.test_name,
-        hypothesis: `Testing: ${args.element} — "${args.variant_a}" vs "${args.variant_b}"`,
+        hypothesis: `Testing: ${args.element} â€” "${args.variant_a}" vs "${args.variant_b}"`,
         action: `A: ${args.variant_a} | B: ${args.variant_b}`,
         success_metric: args.success_metric ?? "conversion_rate",
         started_by: "IOANN",
         status: "running",
         started_at: new Date().toISOString(),
       });
-      return `✅ A/B test started: "${args.test_name}"\nA: ${args.variant_a}\nB: ${args.variant_b}\nMetric: ${args.success_metric ?? "conversion_rate"}`;
+      return `âś… A/B test started: "${args.test_name}"\nA: ${args.variant_a}\nB: ${args.variant_b}\nMetric: ${args.success_metric ?? "conversion_rate"}`;
     }
 
     case "get_search_intent_gaps": {
@@ -1169,19 +1169,19 @@ export async function executeIoannTool(name: string, args: Record<string, unknow
             user_id: user.id,
             amount: credits,
             type: "bonus",
-            description: `🎁 ${args.message ?? `Re-engagement bonus: ${credits} free credits`}`,
+            description: `đźŽ ${args.message ?? `Re-engagement bonus: ${credits} free credits`}`,
           });
           await (client as any).from("notifications").insert({
             user_id: user.id,
             type: "promo",
-            title: `🎁 You received ${credits} free credits!`,
+            title: `đźŽ You received ${credits} free credits!`,
             body: args.message ?? "We miss you! Come back and try a new agent.",
             link: "/marketplace",
           });
           count++;
         } catch { /* continue */ }
       }
-      return `✅ Sent ${credits} credits to ${count} inactive users (${days}+ days since last activity)`;
+      return `âś… Sent ${credits} credits to ${count} inactive users (${days}+ days since last activity)`;
     }
 
     default:

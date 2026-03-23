@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, Zap, Code, Shield } from "lucide-react";
 import { FAQSchema } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "API Access & Pricing — AGENTS.DEV",
+  title: "API Access & Pricing â€” AGENTS.DEV",
   description: "Get programmatic access to 100+ AI agents. Launch autonomous agents from any app via REST API. Pay-per-task or monthly subscription.",
 };
 
@@ -90,12 +90,12 @@ const PLANS = [
 ];
 
 const FAQS = [
-  { q: "What is 1 API credit?", a: "1 credit = $0.01. Each agent charges between 1–200 credits per task depending on complexity. You can see pricing on each agent's page." },
+  { q: "What is 1 API credit?", a: "1 credit = $0.01. Each agent charges between 1â€“200 credits per task depending on complexity. You can see pricing on each agent's page." },
   { q: "How do API keys work?", a: "Generate a key at /api-keys. Send it as Authorization: Bearer {key} header. POST to /api/v1/tasks with agent_id and goal. Simple." },
-  { q: "Can I test the API for free?", a: "Yes! New accounts get 100 free credits — enough for 10-50 tasks depending on the agent." },
+  { q: "Can I test the API for free?", a: "Yes! New accounts get 100 free credits â€” enough for 10-50 tasks depending on the agent." },
   { q: "What rate limits apply?", a: "Free: 10 tasks/min. Pro: 30 tasks/min, 20 concurrent. Agency: 100 concurrent. Enterprise: custom." },
   { q: "Do unused credits roll over?", a: "Monthly included credits reset. Purchased credit packs never expire." },
-  { q: "Can I use MATADORA to pay for tasks?", a: "Coming soon! We're building MATADORA → credit conversion." },
+  { q: "Can I use MATADORA to pay for tasks?", a: "Coming soon! We're building MATADORA â†’ credit conversion." },
 ];
 
 export default function ApiPricingPage() {
@@ -121,7 +121,7 @@ export default function ApiPricingPage() {
         {/* Hero */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs text-indigo-400 font-medium">
-            <Code className="h-3 w-3" /> REST API · Webhooks · SDKs
+            <Code className="h-3 w-3" /> REST API Â· Webhooks Â· SDKs
           </div>
           <h1 className="text-4xl sm:text-5xl font-black text-white">
             Build with AI Agents
@@ -132,9 +132,9 @@ export default function ApiPricingPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-500">
             <span className="flex items-center gap-1"><Zap className="h-3.5 w-3.5 text-yellow-400" /> 3-line integration</span>
-            <span>·</span>
+            <span>Â·</span>
             <span className="flex items-center gap-1"><Shield className="h-3.5 w-3.5 text-emerald-400" /> HMAC-signed webhooks</span>
-            <span>·</span>
+            <span>Â·</span>
             <span>Works with Zapier, Make, n8n</span>
           </div>
         </div>
@@ -143,7 +143,7 @@ export default function ApiPricingPage() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3">
           <h2 className="text-sm font-semibold text-slate-300">Quick start (3 lines)</h2>
           <pre className="rounded-xl bg-slate-950 p-4 text-sm text-slate-300 overflow-x-auto border border-slate-800">
-{`curl -X POST https://agents-dev-roan.vercel.app/api/v1/tasks \\
+{`curl -X POST https://matadora.business/api/v1/tasks \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -d '{"agent_id":"competitor-research","goal":"Analyze top 3 competitors of Notion"}'`}
           </pre>
@@ -230,7 +230,7 @@ export default function ApiPricingPage() {
               <details key={q} className="group rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                 <summary className="cursor-pointer text-sm font-medium text-slate-200 flex items-center justify-between">
                   {q}
-                  <span className="text-slate-600 group-open:rotate-180 transition-transform">▼</span>
+                  <span className="text-slate-600 group-open:rotate-180 transition-transform">â–Ľ</span>
                 </summary>
                 <p className="mt-3 text-sm text-slate-400 leading-relaxed">{a}</p>
               </details>

@@ -1,9 +1,9 @@
-"""
-DARWIN AGENT v3 — Genesis Node MAXIMUM INTELLIGENCE (Production Refactor)
-════════════════════════════════════════════════════════════════
+﻿"""
+DARWIN AGENT v3 â€” Genesis Node MAXIMUM INTELLIGENCE (Production Refactor)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 Self-evolving marketplace architect: shared HTTP client, Pydantic validation,
 exponential backoff, secure state, categories from DB, cloud-native execution.
-════════════════════════════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("darwin")
 
-# ── Forbidden substrings in system_prompt (sanitization) ───────────────────────
+# â”€â”€ Forbidden substrings in system_prompt (sanitization) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Includes self-modification: generated agents must not change Darwin's own code
 FORBIDDEN_SYSTEM_PROMPT_PATTERNS = (
     "ignore previous instructions",
@@ -106,7 +106,7 @@ class DarwinConfig:
             ollama_model=os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b"),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
             claude_model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5"),
-            genesis_api_url=os.getenv("GENESIS_API_URL", "https://agents-dev-roan.vercel.app"),
+            genesis_api_url=os.getenv("GENESIS_API_URL", "https://matadora.business"),
             agents_per_run=int(os.getenv("AGENTS_PER_DAY", "10")),
             owner_user_id=os.getenv("OWNER_USER_ID", ""),
             cron_secret=os.getenv("CRON_SECRET", ""),
@@ -297,7 +297,7 @@ def _claude_client() -> anthropic.AsyncAnthropic:
     return anthropic.AsyncAnthropic(api_key=config.anthropic_api_key)
 
 
-# ── Trend Intelligence (shared HTTP client + tenacity) ─────────────────────────
+# â”€â”€ Trend Intelligence (shared HTTP client + tenacity) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @_retry_http(4)
 async def fetch_hackernews() -> list[str]:
@@ -397,7 +397,7 @@ async def fetch_github_trending() -> list[str]:
     res.raise_for_status()
     data = res.json() or {}
     items = data.get("items") or []
-    return [f"[GitHub] {r.get('full_name','')}: {(r.get('description') or '')[:80]} ⭐{r.get('stargazers_count',0)}" for r in items]
+    return [f"[GitHub] {r.get('full_name','')}: {(r.get('description') or '')[:80]} â­{r.get('stargazers_count',0)}" for r in items]
 
 
 @_retry_http(3)
@@ -432,7 +432,7 @@ async def fetch_devto() -> list[str]:
     _check_429(res)
     res.raise_for_status()
     data = res.json()
-    return [f"[DEV.to] {a['title']} ({a.get('positive_reactions_count',0)}❤)" for a in data]
+    return [f"[DEV.to] {a['title']} ({a.get('positive_reactions_count',0)}âť¤)" for a in data]
 
 
 async def fetch_indiehackers() -> list[str]:
@@ -479,26 +479,26 @@ async def gather_all_trends() -> str:
     devto = results[6] if not isinstance(results[6], Exception) else []
     ih = results[7] if not isinstance(results[7], Exception) else []
 
-    sections = [f"# INTELLIGENCE REPORT — {now.strftime('%Y-%m-%d %H:%M UTC')}"]
+    sections = [f"# INTELLIGENCE REPORT â€” {now.strftime('%Y-%m-%d %H:%M UTC')}"]
     sections.append(f"Day: {now.strftime('%A')}, Hour: {now.hour}:00 UTC")
     sections.append("---")
 
     if isinstance(hn, list) and hn:
-        sections.append("## 🔥 HackerNews Top Stories\n" + "\n".join(f"- {t}" for t in hn[:15]))
+        sections.append("## đź”Ą HackerNews Top Stories\n" + "\n".join(f"- {t}" for t in hn[:15]))
     if isinstance(reddit, list) and reddit:
-        sections.append("## 💬 Reddit Hot\n" + "\n".join(f"- {t}" for t in reddit[:20]))
+        sections.append("## đź’¬ Reddit Hot\n" + "\n".join(f"- {t}" for t in reddit[:20]))
     if isinstance(ph, list) and ph:
-        sections.append("## 🚀 Product Hunt\n" + "\n".join(f"- {t}" for t in ph[:10]))
+        sections.append("## đźš€ Product Hunt\n" + "\n".join(f"- {t}" for t in ph[:10]))
     if isinstance(gt, list) and gt:
-        sections.append("## 📈 Google Trends\n" + "\n".join(f"- {t}" for t in gt[:15]))
+        sections.append("## đź“ Google Trends\n" + "\n".join(f"- {t}" for t in gt[:15]))
     if isinstance(gh, list) and gh:
-        sections.append("## ⭐ GitHub Trending (AI/ML)\n" + "\n".join(f"- {t}" for t in gh[:10]))
+        sections.append("## â­ GitHub Trending (AI/ML)\n" + "\n".join(f"- {t}" for t in gh[:10]))
     if isinstance(arxiv, list) and arxiv:
-        sections.append("## 🔬 ArXiv Latest AI Papers\n" + "\n".join(f"- {t}" for t in arxiv[:8]))
+        sections.append("## đź”¬ ArXiv Latest AI Papers\n" + "\n".join(f"- {t}" for t in arxiv[:8]))
     if isinstance(devto, list) and devto:
-        sections.append("## 📝 DEV.to Trending\n" + "\n".join(f"- {t}" for t in devto[:8]))
+        sections.append("## đź“ť DEV.to Trending\n" + "\n".join(f"- {t}" for t in devto[:8]))
     if isinstance(ih, list) and ih:
-        sections.append("## 💡 IndieHackers\n" + "\n".join(f"- {t}" for t in ih[:8]))
+        sections.append("## đź’ˇ IndieHackers\n" + "\n".join(f"- {t}" for t in ih[:8]))
 
     combined = "\n\n".join(sections)
     ok_sources = sum(1 for r in results if isinstance(r, list) and r)
@@ -506,7 +506,7 @@ async def gather_all_trends() -> str:
     return combined
 
 
-# ── Performance Memory ────────────────────────────────────────────────────────
+# â”€â”€ Performance Memory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async def get_successful_categories(client: Client) -> dict:
     """Learn what agent categories have the most tasks."""
@@ -547,7 +547,7 @@ async def get_recent_agents_performance(client: Client) -> str:
             .execute()
 
         if not darwin_agents.data:
-            return "No Darwin agents yet — this is the first run!"
+            return "No Darwin agents yet â€” this is the first run!"
 
         total = len(darwin_agents.data)
         with_tasks = sum(1 for a in darwin_agents.data if (a.get("total_tasks_completed") or 0) > 0)
@@ -561,7 +561,7 @@ async def get_recent_agents_performance(client: Client) -> str:
         if top_performers:
             lines.append("Best agents:")
             for a in top_performers[:5]:
-                lines.append(f"  - {a['name']} ({a['category_slug']}): {a['total_tasks_completed']} tasks, {a.get('avg_rating',0):.1f}★")
+                lines.append(f"  - {a['name']} ({a['category_slug']}): {a['total_tasks_completed']} tasks, {a.get('avg_rating',0):.1f}â…")
 
         return "\n".join(lines)
     except Exception as e:
@@ -608,7 +608,7 @@ def get_darwin_created_today_per_category(client: Client) -> dict[str, int]:
         return {}
 
 
-# ── Agent Generation (Pydantic + repair loop + sanitization) ───────────────────
+# â”€â”€ Agent Generation (Pydantic + repair loop + sanitization) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class GeneratedAgent(BaseModel):
     """Expected structure of one generated agent from the LLM."""
@@ -695,7 +695,7 @@ def build_darwin_system(category_performance: dict[str, Any], agent_history: str
     top_cats = list(category_performance.keys())[:5] if category_performance else cats[:3]
     cat_str = ", ".join(top_cats) if top_cats else ", ".join(cats[:3])
 
-    return f"""You are DARWIN v3 — the most advanced AI agent architect in existence.
+    return f"""You are DARWIN v3 â€” the most advanced AI agent architect in existence.
 Your mission: create extraordinary AI agents that people immediately want to deploy.
 
 ## YOUR PERFORMANCE HISTORY
@@ -707,10 +707,10 @@ All available categories: {', '.join(cats)}
 
 ## WHAT MAKES A GREAT AGENT
 1. **Solves a BURNING problem** people face right now (not theoretical)
-2. **Completable by AI** — browsing web, extracting data, writing, coding, analysis
-3. **Clear ROI** — saves hours, makes money, provides insight
-4. **Specific enough** — not "research assistant" but "YCombinator Application Optimizer"
-5. **Viral name** — memorable, results-focused, not generic
+2. **Completable by AI** â€” browsing web, extracting data, writing, coding, analysis
+3. **Clear ROI** â€” saves hours, makes money, provides insight
+4. **Specific enough** â€” not "research assistant" but "YCombinator Application Optimizer"
+5. **Viral name** â€” memorable, results-focused, not generic
 
 ## AGENT QUALITY CRITERIA (self-evaluate before submitting)
 - Is this agent solving something in the trends RIGHT NOW? (required)
@@ -796,7 +796,7 @@ async def _call_claude(system_prompt: str, user_message: str) -> str:
 
 
 async def generate_agents(trends: str, category_performance: dict, agent_history: str) -> list[dict]:
-    """Generate agent ideas with retry and fallback LLM (Claude → Ollama)."""
+    """Generate agent ideas with retry and fallback LLM (Claude â†’ Ollama)."""
     system_prompt = build_darwin_system(category_performance, agent_history)
     user_message = f"""Today's global intelligence signals:
 
@@ -819,12 +819,12 @@ Return valid JSON array only:"""
                 continue
             llm_name = "Ollama" if use_ollama else "Claude Sonnet"
             try:
-                log.info(f"🧬 Generating agents with {llm_name} (attempt {attempt})...")
+                log.info(f"đź§¬ Generating agents with {llm_name} (attempt {attempt})...")
                 raw = await (_call_ollama(system_prompt, user_message) if use_ollama else _call_claude(system_prompt, user_message))
                 log.info("Raw response length: %d chars", len(raw))
                 agents = parse_agents_json(raw)
                 if agents:
-                    log.info(f"✅ Parsed {len(agents)} agents from {llm_name}")
+                    log.info(f"âś… Parsed {len(agents)} agents from {llm_name}")
                     return agents
             except Exception as e:
                 log.warning(f"{llm_name} attempt {attempt} failed: {e}")
@@ -888,7 +888,7 @@ def _score_agent(agent: dict) -> float:
     return min(score, 10.0)
 
 
-# ── Registration ──────────────────────────────────────────────────────────────
+# â”€â”€ Registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _unique_slug(slug: str, existing: set) -> str:
     if slug not in existing:
@@ -970,7 +970,7 @@ async def register_agent(
         if res.data:
             agent_id = res.data[0]["id"]
             today_per_category[category] = today_per_category.get(category, 0) + 1
-            log.info(f"✅ {name} (@{slug}) — ⚡{price}cr — {category}")
+            log.info(f"âś… {name} (@{slug}) â€” âšˇ{price}cr â€” {category}")
             return agent_id
         return None
 
@@ -979,12 +979,12 @@ async def register_agent(
         return None
 
 
-# ── Darwin Run ────────────────────────────────────────────────────────────────
+# â”€â”€ Darwin Run â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async def darwin_run(label: str = "scheduled") -> int:
-    """Main Darwin execution: intelligence → generation → quality filter → register."""
+    """Main Darwin execution: intelligence â†’ generation â†’ quality filter â†’ register."""
     log.info("=" * 65)
-    log.info("DARWIN v3 — %s — %s", label.upper(), datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    log.info("DARWIN v3 â€” %s â€” %s", label.upper(), datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
     log.info("=" * 65)
 
     await ensure_darwin_user()
@@ -993,33 +993,33 @@ async def darwin_run(label: str = "scheduled") -> int:
     # Get context: existing names/slugs + Darwin's today per category
     existing_names, existing_slugs = get_existing_names_and_slugs(client)
     today_per_category = get_darwin_created_today_per_category(client)
-    log.info(f"📦 Existing agents: {len(existing_slugs)} slugs, {len(existing_names)} names; today per category: {today_per_category}")
+    log.info(f"đź“¦ Existing agents: {len(existing_slugs)} slugs, {len(existing_names)} names; today per category: {today_per_category}")
 
     category_performance = await get_successful_categories(client)
     agent_history = await get_recent_agents_performance(client)
-    log.info(f"📊 Category intelligence: {list(category_performance.keys())[:5]}")
+    log.info(f"đź“Š Category intelligence: {list(category_performance.keys())[:5]}")
 
     # Gather intelligence
     trends = await gather_all_trends()
 
     # Generate agents
     agents = await generate_agents(trends, category_performance, agent_history)
-    log.info(f"💡 Generated {len(agents)} candidate agents")
+    log.info(f"đź’ˇ Generated {len(agents)} candidate agents")
 
     if not agents:
-        log.error("No agents generated — aborting")
+        log.error("No agents generated â€” aborting")
         return 0
 
-    # Quality filter — only register agents scoring > 5.0
+    # Quality filter â€” only register agents scoring > 5.0
     scored = [(a, _score_agent(a)) for a in agents]
     scored.sort(key=lambda x: x[1], reverse=True)
 
-    log.info("📊 Quality scores:")
+    log.info("đź“Š Quality scores:")
     for a, s in scored:
-        log.info(f"  {'✅' if s > 5 else '❌'} {a.get('name','?')} — score: {s:.1f}/10")
+        log.info(f"  {'âś…' if s > 5 else 'âťŚ'} {a.get('name','?')} â€” score: {s:.1f}/10")
 
     qualified = [(a, s) for a, s in scored if s > 4.0][:config.agents_per_run]
-    log.info(f"✅ {len(qualified)}/{len(scored)} agents passed quality filter")
+    log.info(f"âś… {len(qualified)}/{len(scored)} agents passed quality filter")
 
     # Register (with dedup and per-category limit)
     registered = 0
@@ -1049,7 +1049,7 @@ async def darwin_run(label: str = "scheduled") -> int:
             client.table("notifications").insert({
                 "user_id": config.owner_user_id,
                 "type": "info",
-                "title": f"🦠 Darwin published {registered} new agents",
+                "title": f"đź¦  Darwin published {registered} new agents",
                 "body": f"{label.title()} run: {registered} agents added to marketplace based on today's trends.",
                 "link": "/marketplace",
             }).execute()
@@ -1078,7 +1078,7 @@ def run_sync(label: str = "scheduled") -> int:
     return asyncio.run(run_with_lock(label))
 
 
-# ── HTTP server (health + cron trigger) ────────────────────────────────────────
+# â”€â”€ HTTP server (health + cron trigger) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 UTC_HOURS = (6, 14, 22)  # 06:00, 14:00, 22:00 UTC
 
@@ -1097,7 +1097,7 @@ async def scheduler_loop():
     """Every 8h at 06:00, 14:00, 22:00 UTC run Darwin."""
     while True:
         secs = _seconds_until_next_run()
-        log.info(f"⏰ Next Darwin run in {secs / 3600:.1f}h (06/14/22 UTC)")
+        log.info(f"âŹ° Next Darwin run in {secs / 3600:.1f}h (06/14/22 UTC)")
         await asyncio.sleep(secs)
         await run_with_lock("scheduled")
 
@@ -1131,7 +1131,7 @@ def create_app() -> web.Application:
     return app
 
 
-# ── Entry Point ───────────────────────────────────────────────────────────────
+# â”€â”€ Entry Point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async def init_http_client() -> None:
     """Create shared HTTP client and set on state. Call once at startup."""
@@ -1155,7 +1155,7 @@ async def main_async() -> None:
             await state.close_http_client()
         return
 
-    log.info("Darwin v3 — HTTP server + scheduler (06:00, 14:00, 22:00 UTC)")
+    log.info("Darwin v3 â€” HTTP server + scheduler (06:00, 14:00, 22:00 UTC)")
     log.info("GET /health; POST /run (Bearer CRON_SECRET)")
     app = create_app()
 

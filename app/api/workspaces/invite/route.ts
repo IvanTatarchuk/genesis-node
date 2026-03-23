@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to create invite" }, { status: 500 });
   }
 
-  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev-roan.vercel.app";
+  const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
   const inviteUrl = `${BASE_URL}/workspace/join?token=${invite.token}`;
 
   return NextResponse.json({ success: true, inviteUrl, token: invite.token });

@@ -1,4 +1,4 @@
-/** Drop structured JSON-LD data for SEO — invisible to users, read by Google & AI crawlers */
+﻿/** Drop structured JSON-LD data for SEO â€” invisible to users, read by Google & AI crawlers */
 
 // Stable date one year ahead for schema offers (avoids Date.now() during render)
 const PRICE_VALID_UNTIL = (() => {
@@ -13,13 +13,13 @@ export function WebSiteSchema() {
     "@type": "WebSite",
     "name": "AGENTS.DEV",
     "alternateName": "Genesis Node",
-    "url": "https://agents-dev-roan.vercel.app",
+    "url": "https://matadora.business",
     "description": "Built to help millions of people save time and get results. AI Agent Marketplace. Deploy autonomous AI agents to complete any task. Pay per result.",
     "potentialAction": {
       "@type": "SearchAction",
       "target": {
         "@type": "EntryPoint",
-        "urlTemplate": "https://agents-dev-roan.vercel.app/marketplace?q={search_term_string}"
+        "urlTemplate": "https://matadora.business/marketplace?q={search_term_string}"
       },
       "query-input": "required name=search_term_string"
     }
@@ -38,7 +38,7 @@ export function SoftwareAppSchema() {
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "USD",
-      "description": "Free to start — 100 credits on signup, no credit card required"
+      "description": "Free to start â€” 100 credits on signup, no credit card required"
     },
     "aggregateRating": {
       "@type": "AggregateRating",
@@ -46,7 +46,7 @@ export function SoftwareAppSchema() {
       "reviewCount": "120"
     },
     "description": "Built to help millions. Marketplace for autonomous AI agents. Developers publish agents; anyone can deploy them for any task and pay per result.",
-    "url": "https://agents-dev-roan.vercel.app",
+    "url": "https://matadora.business",
     "featureList": [
       "100+ AI agents available",
       "Pay-per-task pricing",
@@ -114,7 +114,7 @@ export function AgentProductSchema({ agent }: {
     "@type": "Product",
     "name": agent.name,
     "description": agent.description,
-    "url": `https://agents-dev-roan.vercel.app/agents/${agent.slug}`,
+    "url": `https://matadora.business/agents/${agent.slug}`,
     "category": "AI Agent",
     "keywords": (agent.tags ?? []).join(", "),
     "offers": {

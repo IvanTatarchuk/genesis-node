@@ -1,8 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Integrations – Connect AGENTS.DEV to Zapier, Make, n8n and more",
+  title: "Integrations â€“ Connect AGENTS.DEV to Zapier, Make, n8n and more",
   description:
     "Connect AGENTS.DEV to 5000+ apps via Zapier, Make, and n8n. Trigger AI agents from Gmail, Notion, Slack, and any workflow.",
 };
@@ -10,15 +10,15 @@ export const metadata: Metadata = {
 const INTEGRATIONS = [
   {
     name: "Zapier",
-    logo: "⚡",
+    logo: "âšˇ",
     description: "Connect AGENTS.DEV to 5,000+ apps. Trigger agents from Gmail, Sheets, CRM, Slack, and more.",
     badge: "Most popular",
     badgeColor: "text-amber-400 border-amber-700/60 bg-amber-900/20",
     steps: [
       "Create a Zap in Zapier",
       'Set trigger (e.g. "New row in Google Sheets")',
-      'Add action: "Webhooks by Zapier → POST"',
-      "URL: https://agents-dev-roan.vercel.app/api/v1/tasks",
+      'Add action: "Webhooks by Zapier â†’ POST"',
+      "URL: https://matadora.business/api/v1/tasks",
       'Body: { "agent_slug": "your-agent", "goal": "{{your_data}}" }',
       'Add header: Authorization: Bearer gn_live_YOUR_KEY',
     ],
@@ -26,13 +26,13 @@ const INTEGRATIONS = [
   },
   {
     name: "Make (Integromat)",
-    logo: "🔮",
+    logo: "đź”®",
     description: "Build visual workflows with AGENTS.DEV as an HTTP module. 1,500+ integrations available.",
     badge: "Visual builder",
     badgeColor: "text-purple-400 border-purple-700/60 bg-purple-900/20",
     steps: [
       "Create a new Scenario in Make",
-      "Add an HTTP module → Make a request",
+      "Add an HTTP module â†’ Make a request",
       "Method: POST, URL: /api/v1/tasks",
       'Body: JSON { "agent_slug": "...", "goal": "..." }',
       "Set Authorization header with your API key",
@@ -42,14 +42,14 @@ const INTEGRATIONS = [
   },
   {
     name: "n8n",
-    logo: "🔄",
+    logo: "đź”„",
     description: "Open-source workflow automation. Run on your own server and keep full data control.",
     badge: "Self-hosted",
     badgeColor: "text-red-400 border-red-700/60 bg-red-900/20",
     steps: [
       "Add an HTTP Request node in n8n",
       "Set Method: POST",
-      "URL: https://agents-dev-roan.vercel.app/api/v1/tasks",
+      "URL: https://matadora.business/api/v1/tasks",
       "Add header: Authorization: Bearer YOUR_API_KEY",
       'JSON Body: { "agent_slug": "...", "goal": "..." }',
       "Connect to any trigger node (Webhook, Schedule, etc.)",
@@ -58,12 +58,12 @@ const INTEGRATIONS = [
   },
   {
     name: "Webhooks (custom)",
-    logo: "🔗",
+    logo: "đź”—",
     description: "Receive task completion events in your own app. Perfect for developers building on top of AGENTS.DEV.",
     badge: "Developer",
     badgeColor: "text-sky-400 border-sky-700/60 bg-sky-900/20",
     steps: [
-      "Go to API Keys → Webhooks",
+      "Go to API Keys â†’ Webhooks",
       "Register your HTTPS endpoint URL",
       "Choose events: task.completed, task.failed",
       'Receive JSON payload with task result at your URL',
@@ -75,7 +75,7 @@ const INTEGRATIONS = [
 ];
 
 const CODE_EXAMPLES = {
-  curl: `curl -X POST https://agents-dev-roan.vercel.app/api/v1/tasks \\
+  curl: `curl -X POST https://matadora.business/api/v1/tasks \\
   -H "Authorization: Bearer gn_live_YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -83,7 +83,7 @@ const CODE_EXAMPLES = {
     "goal": "Find the top 5 SaaS tools for project management in 2025"
   }'`,
 
-  js: `const res = await fetch("https://agents-dev-roan.vercel.app/api/v1/tasks", {
+  js: `const res = await fetch("https://matadora.business/api/v1/tasks", {
   method: "POST",
   headers: {
     "Authorization": "Bearer gn_live_YOUR_API_KEY",
@@ -100,7 +100,7 @@ console.log("Task started:", task.id);`,
   python: `import requests
 
 response = requests.post(
-    "https://agents-dev-roan.vercel.app/api/v1/tasks",
+    "https://matadora.business/api/v1/tasks",
     headers={
         "Authorization": "Bearer gn_live_YOUR_API_KEY",
         "Content-Type": "application/json",
@@ -127,7 +127,7 @@ export default function IntegrationsPage() {
           <div className="flex items-center gap-4 text-sm">
             <Link href="/marketplace" className="text-slate-400 hover:text-white transition">Marketplace</Link>
             <Link href="/login" className="rounded-full bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 text-sm font-medium text-white transition">
-              Get API key →
+              Get API key â†’
             </Link>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function IntegrationsPage() {
         {/* Code examples */}
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-white text-center">
-            REST API — deploy agents programmatically
+            REST API â€” deploy agents programmatically
           </h2>
           <div className="space-y-4">
             {Object.entries(CODE_EXAMPLES).map(([lang, code]) => (
@@ -211,7 +211,7 @@ export default function IntegrationsPage() {
               href="/api-keys"
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition hover:brightness-110"
             >
-              Get API key →
+              Get API key â†’
             </Link>
             <Link href="/pricing" className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-6 py-2.5 text-sm text-slate-300 hover:border-slate-500 transition">
               See pricing

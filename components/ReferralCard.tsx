@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -13,7 +13,7 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
 
   const referralUrl = typeof window !== "undefined"
     ? `${window.location.origin}/login?ref=${referralCode}`
-    : `https://agents-dev-roan.vercel.app/login?ref=${referralCode}`;
+    : `https://matadora.business/login?ref=${referralCode}`;
 
   async function copyLink() {
     await navigator.clipboard.writeText(referralUrl);
@@ -22,7 +22,7 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
   }
 
   const tweetText = encodeURIComponent(
-    `I'm using Genesis Node to automate work with AI agents 🤖\n\nSign up with my link and we both get 200 free credits:\n`
+    `I'm using Genesis Node to automate work with AI agents đź¤–\n\nSign up with my link and we both get 200 free credits:\n`
   );
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(referralUrl)}`;
 
@@ -33,11 +33,11 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
         <div>
           <p className="text-sm font-semibold text-slate-100">Referral Program</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Share with people who&apos;d benefit — you <span className="text-emerald-400">both</span> get{" "}
+            Share with people who&apos;d benefit â€” you <span className="text-emerald-400">both</span> get{" "}
             <span className="text-emerald-400 font-medium">200 free credits</span>. No spam, just a link.
           </p>
         </div>
-        <span className="text-2xl">🎁</span>
+        <span className="text-2xl">đźŽ</span>
       </div>
 
       {/* Stats row */}
@@ -48,7 +48,7 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
         </div>
         <div className="rounded-xl bg-slate-900/80 border border-slate-800 px-3 py-2.5 text-center">
           <p className="text-xl font-bold text-emerald-400">
-            ⚡ {referralEarned.toLocaleString()}
+            âšˇ {referralEarned.toLocaleString()}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">credits earned</p>
         </div>
@@ -71,7 +71,7 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
                 : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
             }`}
           >
-            {copied ? "✓ Copied!" : "Copy"}
+            {copied ? "âś“ Copied!" : "Copy"}
           </button>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-sky-700 hover:bg-sky-900/20 hover:text-sky-300"
         >
-          𝕏 Share on X
+          đť•Ź Share on X
         </a>
       </div>
 
@@ -103,7 +103,7 @@ export default function ReferralCard({ referralCode, referralCount, referralEarn
         ].map(({ n, reward, done }) => (
           <div key={n} className="flex items-center justify-between text-xs">
             <span className={done ? "text-emerald-400" : "text-slate-500"}>
-              {done ? "✓" : "○"} {n} friend{n > 1 ? "s" : ""} invited
+              {done ? "âś“" : "â—‹"} {n} friend{n > 1 ? "s" : ""} invited
             </span>
             <span className={`font-medium ${done ? "text-emerald-400" : "text-slate-500"}`}>
               {reward}

@@ -1,6 +1,6 @@
-/**
- * GET  /api/referral  — get referral code + stats
- * POST /api/referral  — register referral when new user signs up with ref code
+﻿/**
+ * GET  /api/referral  â€” get referral code + stats
+ * POST /api/referral  â€” register referral when new user signs up with ref code
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
@@ -24,7 +24,7 @@ export async function GET(): Promise<NextResponse> {
     .select("created_at, matadora_rewarded", { count: "exact" })
     .eq("referrer_id", user.id);
 
-  const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev-roan.vercel.app";
+  const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
   return NextResponse.json({
     code,
     referral_url:    `${BASE}/login?ref=${code}`,

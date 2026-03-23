@@ -1,5 +1,5 @@
-/**
- * RESEARCH TOOLS v3 — Maximum web intelligence for Trinity agents
+﻿/**
+ * RESEARCH TOOLS v3 â€” Maximum web intelligence for Trinity agents
  * 12 tools: web browsing, AI news, GitHub, HN, competitor analysis,
  * ArXiv, DEV.to, SEO analysis, documentation, YouTube trends, social signals.
  */
@@ -148,7 +148,7 @@ export const RESEARCH_TOOLS: GrokTool[] = [
   },
 ];
 
-// ── Executors ──────────────────────────────────────────────────────────────────
+// â”€â”€ Executors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function executeResearchTool(name: string, args: Record<string, unknown>): Promise<string> {
   const UA = "Mozilla/5.0 (compatible; TrinityBot/3.0; +https://genesis-node.app)";
@@ -216,7 +216,7 @@ export async function executeResearchTool(name: string, args: Record<string, unk
           },
         });
         return res.data.items.map((r: any) =>
-          `⭐${r.stargazers_count} | ${r.full_name}\n  ${r.description?.slice(0, 100) ?? "no desc"}\n  ${r.html_url}`
+          `â­${r.stargazers_count} | ${r.full_name}\n  ${r.description?.slice(0, 100) ?? "no desc"}\n  ${r.html_url}`
         ).join("\n\n");
       } catch (err: any) {
         return `GitHub trending error: ${err.message}`;
@@ -260,7 +260,7 @@ ${text.slice(0, 4000)}`;
         try {
           const feed = await axios.get("https://www.producthunt.com/feed", { timeout: 10000 });
           const titles = (feed.data as string).match(/<title>(.*?)<\/title>/g)?.slice(1, limit + 1) ?? [];
-          results.push("## 🚀 Product Hunt:\n" + titles.map((t: string) => `- ${t.replace(/<\/?title>/g, "")}`).join("\n"));
+          results.push("## đźš€ Product Hunt:\n" + titles.map((t: string) => `- ${t.replace(/<\/?title>/g, "")}`).join("\n"));
         } catch { results.push("Product Hunt: unavailable"); }
       }
 
@@ -284,14 +284,14 @@ ${text.slice(0, 4000)}`;
             timeout: 10000,
           });
           const titles = (res.data as string).match(/<title>(.*?)<\/title>/g)?.slice(1, 9) ?? [];
-          results.push("## 🔬 ArXiv AI/ML:\n" + titles.map((t: string) => `- ${t.replace(/<\/?title>/g, "")}`).join("\n"));
+          results.push("## đź”¬ ArXiv AI/ML:\n" + titles.map((t: string) => `- ${t.replace(/<\/?title>/g, "")}`).join("\n"));
         } catch { results.push("ArXiv: unavailable"); }
       }
 
       if (source === "devto" || source === "all") {
         try {
           const res = await axios.get("https://dev.to/api/articles", { params: { top: 7, per_page: 8 }, timeout: 8000 });
-          results.push("## 📝 DEV.to:\n" + res.data.map((a: any) => `- ${a.title} (${a.positive_reactions_count}❤)`).join("\n"));
+          results.push("## đź“ť DEV.to:\n" + res.data.map((a: any) => `- ${a.title} (${a.positive_reactions_count}âť¤)`).join("\n"));
         } catch { results.push("DEV.to: unavailable"); }
       }
 
@@ -304,7 +304,7 @@ ${text.slice(0, 4000)}`;
         const latest = res.data["dist-tags"].latest;
         const info = res.data.versions[latest];
         const downloads = await axios.get(`https://api.npmjs.org/downloads/point/last-week/${args.package_name}`);
-        return `📦 ${args.package_name}@${latest}\nDownloads/week: ${(downloads.data.downloads ?? 0).toLocaleString()}\nDependencies: ${Object.keys(info.dependencies ?? {}).join(", ") || "none"}\nLicense: ${info.license ?? "unknown"}`;
+        return `đź“¦ ${args.package_name}@${latest}\nDownloads/week: ${(downloads.data.downloads ?? 0).toLocaleString()}\nDependencies: ${Object.keys(info.dependencies ?? {}).join(", ") || "none"}\nLicense: ${info.license ?? "unknown"}`;
       } catch (err: any) {
         return `NPM error: ${err.message}`;
       }
@@ -366,7 +366,7 @@ ${text.slice(0, 4000)}`;
     }
 
     case "get_platform_seo_score": {
-      const url = (args.url as string) ?? (process.env.GENESIS_API_URL ?? "https://agents-dev-roan.vercel.app");
+      const url = (args.url as string) ?? (process.env.GENESIS_API_URL ?? "https://matadora.business");
       try {
         const res = await axios.get(url, { timeout: 12000 });
         const html = res.data as string;
@@ -395,7 +395,7 @@ ${text.slice(0, 4000)}`;
         const recommendations = [];
         if (title.length > 70) recommendations.push("Shorten title (<70 chars)");
         if (description.length > 160) recommendations.push("Shorten meta description (<160 chars)");
-        if (h1Count > 1) recommendations.push(`Multiple H1s found (${h1Count}) — should be 1`);
+        if (h1Count > 1) recommendations.push(`Multiple H1s found (${h1Count}) â€” should be 1`);
         if (!ogImage) recommendations.push("Add og:image for social sharing");
         if (!hasSchema) recommendations.push("Add JSON-LD schema markup");
 
@@ -408,7 +408,7 @@ OG Image: ${ogImage}
 Twitter Card: ${twitterCard}
 Canonical: ${hasCanonical}
 Schema.org: ${hasSchema}
-${recommendations.length > 0 ? "\nRECOMMENDATIONS:\n" + recommendations.map(r => `- ${r}`).join("\n") : "\n✅ SEO looks good!"}`;
+${recommendations.length > 0 ? "\nRECOMMENDATIONS:\n" + recommendations.map(r => `- ${r}`).join("\n") : "\nâś… SEO looks good!"}`;
       } catch (err: any) {
         return `SEO check failed for ${url}: ${err.message}`;
       }

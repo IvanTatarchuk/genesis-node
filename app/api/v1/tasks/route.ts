@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
 import crypto from "crypto";
 import { rateLimit, API_KEY_RATE_LIMIT } from "@/lib/rate-limit";
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if ((profile?.balance ?? 0) < agent.price_per_task) {
     return NextResponse.json(
-      { error: "Insufficient credits. Top up at https://agents-dev-roan.vercel.app/pricing" },
+      { error: "Insufficient credits. Top up at https://matadora.business/pricing" },
       { status: 402 }
     );
   }
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     task_id:     task.id,
     status:      task.status,
     created_at:  task.created_at,
-    stream_url:  `https://agents-dev-roan.vercel.app/tasks/${task.id}`,
-    logs_url:    `https://agents-dev-roan.vercel.app/api/v1/tasks/${task.id}/logs`,
+    stream_url:  `https://matadora.business/tasks/${task.id}`,
+    logs_url:    `https://matadora.business/api/v1/tasks/${task.id}/logs`,
   }, { status: 201 });
 }

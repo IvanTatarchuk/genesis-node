@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -13,10 +13,10 @@ export default function ShareCardClient({ taskId, goal, agentName }: Props) {
 
   const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/share/${taskId}`
-    : `https://agents-dev-roan.vercel.app/share/${taskId}`;
+    : `https://matadora.business/share/${taskId}`;
 
   const tweetText = encodeURIComponent(
-    `✅ AI agent just completed: "${goal.slice(0, 80)}" in seconds\n\nBuilt with @GenesisNodeAI 🤖\n\n`
+    `âś… AI agent just completed: "${goal.slice(0, 80)}" in seconds\n\nBuilt with @GenesisNodeAI đź¤–\n\n`
   );
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(shareUrl)}`;
 
@@ -49,7 +49,7 @@ export default function ShareCardClient({ taskId, goal, agentName }: Props) {
               : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-700"
           }`}
         >
-          {copied ? "✓ Copied!" : "Copy"}
+          {copied ? "âś“ Copied!" : "Copy"}
         </button>
       </div>
 
@@ -61,7 +61,7 @@ export default function ShareCardClient({ taskId, goal, agentName }: Props) {
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-sky-700 hover:bg-sky-900/30 hover:text-sky-300"
         >
-          𝕏 Share on X
+          đť•Ź Share on X
         </a>
         <a
           href={linkedInUrl}

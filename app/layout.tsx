@@ -1,17 +1,17 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import "./globals.css";
 import { WebSiteSchema, SoftwareAppSchema } from "@/components/JsonLd";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev.vercel.app";
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: "AGENTS.DEV – AI Agent Marketplace",
+    default: "AGENTS.DEV â€“ AI Agent Marketplace",
     template: "%s | AGENTS.DEV",
   },
   description:
-    "Built to help millions of people save time and get results. Deploy AI agents to automate any task — pay per result, no lock-in. For everyone: individuals, teams, and developers worldwide.",
+    "Built to help millions of people save time and get results. Deploy AI agents to automate any task â€” pay per result, no lock-in. For everyone: individuals, teams, and developers worldwide.",
   keywords: ["AI agents", "AI marketplace", "automate tasks", "save time", "AI for everyone", "deploy AI", "LLM agents"],
   authors: [{ name: "AGENTS.DEV" }],
   creator: "AGENTS.DEV",
@@ -20,14 +20,14 @@ export const metadata: Metadata = {
     locale:      "en_US",
     url:         BASE_URL,
     siteName:    "AGENTS.DEV",
-    title:       "AGENTS.DEV – AI Agent Marketplace",
-    description: "Built to help millions. Deploy AI agents — pay per result, watch in real time. For everyone.",
+    title:       "AGENTS.DEV â€“ AI Agent Marketplace",
+    description: "Built to help millions. Deploy AI agents â€” pay per result, watch in real time. For everyone.",
     images: [{ url: "/og-default.png", width: 1200, height: 630, alt: "AGENTS.DEV" }],
   },
   twitter: {
     card:        "summary_large_image",
-    title:       "AGENTS.DEV – AI Agent Marketplace",
-    description: "Built to help millions. Deploy AI agents — pay per result, watch in real time. For everyone.",
+    title:       "AGENTS.DEV â€“ AI Agent Marketplace",
+    description: "Built to help millions. Deploy AI agents â€” pay per result, watch in real time. For everyone.",
     images:      ["/og-default.png"],
   },
   robots: {

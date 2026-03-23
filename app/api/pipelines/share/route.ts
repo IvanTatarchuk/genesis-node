@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 
-// POST /api/pipelines/share — toggle public sharing on a pipeline
+// POST /api/pipelines/share â€” toggle public sharing on a pipeline
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,16 +25,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     await service.from("pipelines").update({ share_token: token, is_public }).eq("id", pipeline_id);
-    const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev-roan.vercel.app";
+    const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
     return NextResponse.json({ is_public, shareUrl: `${BASE}/p/${token}` });
   }
 
   await service.from("pipelines").update({ is_public }).eq("id", pipeline_id);
-  const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agents-dev-roan.vercel.app";
+  const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
   return NextResponse.json({ is_public, shareUrl: `${BASE}/p/${pl.share_token}` });
 }
 
-// POST /api/pipelines/fork — fork a shared pipeline
+// POST /api/pipelines/fork â€” fork a shared pipeline
 export async function PUT(req: NextRequest): Promise<NextResponse> {
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();

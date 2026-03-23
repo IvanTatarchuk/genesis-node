@@ -6,7 +6,7 @@ const PROTECTED_PREFIXES = ["/dashboard", "/agents/new"];
 // Routes that logged-in users should not access (auth pages)
 const AUTH_ROUTES = ["/login"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Build a mutable response so Supabase SSR can set cookies on it

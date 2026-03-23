@@ -81,6 +81,9 @@ export default async function HomePage() {
           <Link href="/b2b-leads" className="text-sm text-slate-400 hover:text-white transition hidden lg:block">
             B2B Leads
           </Link>
+          <Link href="/construction" className="text-sm font-semibold text-yellow-400 hover:text-yellow-300 transition hidden lg:flex items-center gap-1">
+            🏗️ Construction
+          </Link>
           <Link href="/gallery" className="text-sm text-slate-400 hover:text-white transition hidden sm:block">
             Gallery
           </Link>
@@ -291,6 +294,25 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Construction CTA */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 pb-10">
+        <Link
+          href="/construction"
+          className="block rounded-3xl border border-yellow-500/20 bg-gradient-to-br from-yellow-900/20 to-slate-900/60 p-8 text-center backdrop-blur hover:border-yellow-500/40 transition"
+        >
+          <div className="inline-flex items-center gap-2 text-xs text-yellow-300 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-3 py-1 mb-4">
+            🏗️ For Construction &amp; Enterprise
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+            Automate your construction firm with AI agents
+          </h2>
+          <p className="text-slate-400 mb-4 text-sm max-w-xl mx-auto">
+            Project reports, procurement, compliance, permits — agents that work around the clock for general contractors, EPC firms, and large corporations.
+          </p>
+          <span className="text-yellow-400 font-semibold text-sm">🧱 Meet Felix — explore construction agents →</span>
+        </Link>
+      </section>
+
       {/* How it works */}
       <section className="relative z-10 max-w-7xl mx-auto px-6 pb-24">
         <h2 className="text-2xl font-bold text-white text-center mb-12">How it works</h2>
@@ -398,6 +420,7 @@ export default async function HomePage() {
             <Link href="/leaderboard" className="hover:text-slate-300 transition">Leaderboard</Link>
             <Link href="/for/developers" className="hover:text-slate-300 transition">For Developers</Link>
             <Link href="/for/teams" className="hover:text-slate-300 transition">For Teams</Link>
+            <Link href="/construction" className="hover:text-yellow-400 transition font-semibold text-yellow-500">🏗️ Construction</Link>
             <Link href="/pricing" className="hover:text-slate-300 transition">Pricing</Link>
             <Link href="/login?next=/dashboard" className="hover:text-rose-300 transition">Support Genesis Node</Link>
             <Link href="/faq" className="hover:text-slate-300 transition">FAQ</Link>

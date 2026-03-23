@@ -1,38 +1,48 @@
 """
-DARWIN AGENT v3 — Genesis Node MAXIMUM INTELLIGENCE
+DARWIN AGENT v3 — Genesis Node MAXIMUM INTELLIGENCE (Production Refactor)
 ════════════════════════════════════════════════════════════════
-The self-evolving architect of the Genesis Node marketplace.
-
-Capabilities:
-1. Multi-source trend intelligence (HN, Reddit, GitHub, PH, ArXiv, DEV.to, IndieHackers, GoogleTrends)
-2. Quality-scored agent generation — only the best get published
-3. Long-term memory — learns which agent types succeed
-4. Self-optimization — improves its own prompting based on results
-5. Revenue analytics — tracks which agents earn, adjusts strategy
-6. Seasonal intelligence — understands time-of-week/year patterns
-7. 3x daily runs (06:00, 14:00, 22:00 UTC)
-8. Generates rich, detailed agents with examples, use-cases, capabilities
-
-"Survival of the fittest agents" — natural selection at scale.
+Self-evolving marketplace architect: shared HTTP client, Pydantic validation,
+exponential backoff, secure state, categories from DB, cloud-native execution.
 ════════════════════════════════════════════════════════════════
 """
 
-import asyncio
-import os
-import json
-import re
-import logging
-import schedule
-import time
-import hashlib
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from __future__ import annotations
 
-import httpx
-import feedparser
+import asyncio
+import hashlib
+import json
+import logging
+import os
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
+from typing import Any, Optional
+
+# Load .env from this script's directory first so Darwin works without exporting vars
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.isfile(_env_path):
+    with open(_env_path, encoding="utf-8") as _f:
+        for _line in _f:
+            _m = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)\s*$", _line)
+            if _m and _m.group(1) not in os.environ:
+                _val = _m.group(2).strip()
+                if "#" in _val:
+                    _val = _val.split("#")[0].strip()
+                os.environ[_m.group(1)] = _val.strip("'\"")
+
 import anthropic
+import feedparser
+import httpx
+from aiohttp import web
 from openai import AsyncOpenAI
-from supabase import create_client, Client
+from pydantic import BaseModel, Field
+from supabase import Client, create_client
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,267 +50,434 @@ logging.basicConfig(
 )
 log = logging.getLogger("darwin")
 
-# ── Config ────────────────────────────────────────────────────────────────────
-SUPABASE_URL        = os.environ["SUPABASE_URL"]
-SUPABASE_KEY        = os.environ["SUPABASE_SERVICE_KEY"]
-OLLAMA_URL          = os.getenv("OLLAMA_URL", "")
-OLLAMA_MODEL        = os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b")
-ANTHROPIC_API_KEY   = os.environ.get("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL        = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5")
-GENESIS_API_URL     = os.getenv("GENESIS_API_URL", "https://agents-dev-roan.vercel.app")
-AGENTS_PER_RUN      = int(os.getenv("AGENTS_PER_DAY", "10"))
-OWNER_USER_ID       = os.getenv("OWNER_USER_ID", "")
+# ── Forbidden substrings in system_prompt (sanitization) ───────────────────────
+# Includes self-modification: generated agents must not change Darwin's own code
+FORBIDDEN_SYSTEM_PROMPT_PATTERNS = (
+    "ignore previous instructions",
+    "ignore all previous",
+    "disregard your instructions",
+    "jailbreak",
+    "\x00",  # null byte
+    "darwin.py",
+    "edit darwin",
+    "modify darwin",
+    "overwrite this file",
+    "change this code",
+    "agents-dev/darwin",
+    "agents_dev/darwin",
+)
 
-USE_OLLAMA = bool(OLLAMA_URL)
-DARWIN_USER_ID: str = ""  # resolved on startup
 
+@dataclass
+class DarwinConfig:
+    """Immutable config derived from environment."""
 
-# ── LLM Clients ───────────────────────────────────────────────────────────────
+    supabase_url: str
+    supabase_key: str
+    darwin_password: str
+    ollama_url: str
+    ollama_model: str
+    anthropic_api_key: str
+    claude_model: str
+    genesis_api_url: str
+    agents_per_run: int
+    owner_user_id: str
+    cron_secret: str
+    port: int
+    max_per_category_per_day: int
+    llm_retries: int
+    github_token: str
 
-async def ensure_darwin_user() -> str:
-    """Create or find Darwin's Supabase account, return user ID."""
-    global DARWIN_USER_ID
-    cached = os.getenv("DARWIN_USER_ID", "").strip()
-    if cached:
-        DARWIN_USER_ID = cached
-        log.info(f"Using DARWIN_USER_ID from env: {cached}")
-        return cached
-
-    client = db()
-    darwin_email = "darwin@genesis-node.internal"
-
-    async with httpx.AsyncClient(timeout=15) as http:
-        headers = {
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        create_res = await http.post(
-            f"{SUPABASE_URL}/auth/v1/admin/users",
-            headers=headers,
-            json={
-                "email": darwin_email,
-                "password": hashlib.sha256(SUPABASE_KEY.encode()).hexdigest()[:32],
-                "email_confirm": True,
-                "user_metadata": {"display_name": "Darwin AI", "role": "dev"},
-            },
+    @classmethod
+    def from_env(cls) -> DarwinConfig:
+        """Build config from environment. Load .env from script dir first (see top of file)."""
+        url = os.getenv("SUPABASE_URL", "").strip()
+        key = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+        if not url or not key:
+            raise RuntimeError(
+                "SUPABASE_URL and SUPABASE_SERVICE_KEY required. "
+                "Copy .env.example to .env in the darwin/ folder and set the values."
+            )
+        return cls(
+            supabase_url=url,
+            supabase_key=key,
+            darwin_password=os.getenv("DARWIN_PASSWORD", "").strip(),
+            ollama_url=os.getenv("OLLAMA_URL", ""),
+            ollama_model=os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b"),
+            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
+            claude_model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5"),
+            genesis_api_url=os.getenv("GENESIS_API_URL", "https://agents-dev-roan.vercel.app"),
+            agents_per_run=int(os.getenv("AGENTS_PER_DAY", "10")),
+            owner_user_id=os.getenv("OWNER_USER_ID", ""),
+            cron_secret=os.getenv("CRON_SECRET", ""),
+            port=int(os.getenv("PORT", "8080")),
+            max_per_category_per_day=int(os.getenv("MAX_AGENTS_PER_CATEGORY_PER_DAY", "3")),
+            llm_retries=int(os.getenv("LLM_RETRIES", "3")),
+            github_token=os.getenv("GITHUB_TOKEN", ""),
         )
 
-        if create_res.status_code in (200, 201):
-            uid = create_res.json()["id"]
-            log.info(f"✅ Darwin user created: {uid}")
-        elif create_res.status_code == 422 and "email_exists" in create_res.text:
-            log.info("Darwin user exists, searching for ID...")
-            uid = None
-            page = 1
-            while True:
-                list_res = await http.get(
-                    f"{SUPABASE_URL}/auth/v1/admin/users",
-                    headers=headers,
-                    params={"page": page, "per_page": 100},
-                )
-                if list_res.status_code != 200:
+
+@dataclass
+class DarwinState:
+    """Mutable runtime state: user id, categories, shared HTTP client."""
+
+    darwin_user_id: str = ""
+    categories: list[str] = field(default_factory=list)
+    _http_client: Optional[httpx.AsyncClient] = field(default=None, repr=False)
+    _db: Optional[Client] = field(default=None, repr=False)
+    _run_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    running: bool = False
+
+    @property
+    def http(self) -> httpx.AsyncClient:
+        """Return shared HTTP client; raises if not initialized."""
+        if self._http_client is None:
+            raise RuntimeError("HTTP client not initialized. Call init_http_client() first.")
+        return self._http_client
+
+    def set_http_client(self, client: httpx.AsyncClient) -> None:
+        self._http_client = client
+
+    async def close_http_client(self) -> None:
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
+
+    def db(self) -> Client:
+        if self._db is None:
+            raise RuntimeError("DB not initialized.")
+        return self._db
+
+    def set_db(self, client: Client) -> None:
+        self._db = client
+
+
+# Global state and config (set at startup)
+config = DarwinConfig.from_env()
+state = DarwinState()
+
+# Retry policy for external APIs: exponential backoff, handle 429
+def _retry_http(retries: int = 4):
+    return retry(
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError)),
+        stop=stop_after_attempt(retries),
+        wait=wait_exponential(multiplier=1, min=2, max=60),
+        reraise=True,
+    )
+
+
+def _check_429(response: httpx.Response) -> None:
+    """Raise if 429 so tenacity can retry."""
+    if response.status_code == 429:
+        raise httpx.HTTPStatusError(
+            "Too Many Requests",
+            request=response.request,
+            response=response,
+        )
+
+
+def get_db() -> Client:
+    """Return Supabase client (creates once per process)."""
+    if state._db is None:
+        state.set_db(create_client(config.supabase_url, config.supabase_key))
+    return state.db()
+
+
+async def ensure_darwin_user() -> str:
+    """
+    Create or find Darwin's Supabase account. Uses DARWIN_PASSWORD from env
+    (never derived from SUPABASE_KEY). Updates state.darwin_user_id.
+    """
+    cached = os.getenv("DARWIN_USER_ID", "").strip()
+    if cached:
+        state.darwin_user_id = cached
+        log.info("Using DARWIN_USER_ID from env: %s", cached)
+        return cached
+
+    if not config.darwin_password:
+        raise RuntimeError(
+            "DARWIN_PASSWORD is required for Darwin user creation. "
+            "Set it in environment (do not derive from SUPABASE_KEY)."
+        )
+
+    client = get_db()
+    darwin_email = "darwin@genesis-node.internal"
+    headers = {
+        "apikey": config.supabase_key,
+        "Authorization": f"Bearer {config.supabase_key}",
+        "Content-Type": "application/json",
+    }
+
+    create_res = await state.http.post(
+        f"{config.supabase_url}/auth/v1/admin/users",
+        headers=headers,
+        json={
+            "email": darwin_email,
+            "password": config.darwin_password,
+            "email_confirm": True,
+            "user_metadata": {"display_name": "Darwin AI", "role": "dev"},
+        },
+    )
+    _check_429(create_res)
+
+    if create_res.status_code in (200, 201):
+        uid = create_res.json()["id"]
+        log.info("Darwin user created: %s", uid)
+    elif create_res.status_code == 422 and "email_exists" in (create_res.text or ""):
+        log.info("Darwin user exists, searching for ID...")
+        uid = None
+        page = 1
+        while True:
+            list_res = await state.http.get(
+                f"{config.supabase_url}/auth/v1/admin/users",
+                headers=headers,
+                params={"page": page, "per_page": 100},
+            )
+            _check_429(list_res)
+            if list_res.status_code != 200:
+                break
+            data = list_res.json()
+            users = data.get("users", [])
+            for u in users:
+                if u.get("email") == darwin_email:
+                    uid = u["id"]
                     break
-                data = list_res.json()
-                users = data.get("users", [])
-                for u in users:
-                    if u.get("email") == darwin_email:
-                        uid = u["id"]
-                        break
-                if uid or len(users) < 100:
-                    break
-                page += 1
+            if uid or len(users) < 100:
+                break
+            page += 1
+        if not uid:
+            raise RuntimeError("Cannot start Darwin without a valid user account")
+        log.info("Found existing Darwin user: %s", uid)
+    else:
+        raise RuntimeError(f"Darwin user creation failed: {create_res.status_code}")
 
-            if not uid:
-                raise RuntimeError("Cannot start Darwin without a valid user account")
-            log.info(f"Found existing Darwin user: {uid}")
-        else:
-            raise RuntimeError(f"Darwin user creation failed: {create_res.status_code}")
+    try:
+        client.table("profiles").upsert({
+            "id": uid,
+            "role": "dev",
+            "display_name": "Darwin AI",
+            "balance": 999999,
+        }).execute()
+    except Exception as pe:
+        log.warning("Profile upsert warning: %s", pe)
 
-        try:
-            client.table("profiles").upsert({
-                "id": uid,
-                "role": "dev",
-                "display_name": "Darwin AI",
-                "balance": 999999,
-            }).execute()
-        except Exception as pe:
-            log.warning(f"Profile upsert warning: {pe}")
-
-        DARWIN_USER_ID = uid
-        return uid
+    state.darwin_user_id = uid
+    return uid
 
 
-def db() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+def load_categories_from_db() -> list[str]:
+    """
+    Fetch available category slugs from Supabase categories table on startup.
+    Falls back to default list if table missing or empty.
+    """
+    default = [
+        "research", "coding", "automation", "content",
+        "data", "marketing", "finance", "productivity", "ai-tools", "custom",
+    ]
+    try:
+        res = get_db().table("categories").select("slug").order("sort_order").execute()
+        slugs = [r["slug"] for r in (res.data or []) if r.get("slug")]
+        if slugs:
+            state.categories = slugs
+            log.info("Loaded %d categories from DB: %s", len(slugs), slugs[:5])
+            return slugs
+    except Exception as e:
+        log.warning("Could not load categories from DB: %s. Using defaults.", e)
+    state.categories = default
+    return default
 
 
 def _ollama_client() -> AsyncOpenAI:
-    base = OLLAMA_URL.rstrip("/")
+    base = config.ollama_url.rstrip("/")
     base = base + "/v1" if not base.endswith("/v1") else base
     return AsyncOpenAI(api_key="ollama", base_url=base)
 
 
 def _claude_client() -> anthropic.AsyncAnthropic:
-    return anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    return anthropic.AsyncAnthropic(api_key=config.anthropic_api_key)
 
 
-# ── Trend Intelligence ────────────────────────────────────────────────────────
+# ── Trend Intelligence (shared HTTP client + tenacity) ─────────────────────────
 
+@_retry_http(4)
 async def fetch_hackernews() -> list[str]:
-    """Top + newest HackerNews stories."""
-    async with httpx.AsyncClient(timeout=12) as c:
+    """Top + newest HackerNews stories. Retries on 429/transient errors."""
+    top = await state.http.get("https://hacker-news.firebaseio.com/v0/topstories.json")
+    _check_429(top)
+    top.raise_for_status()
+    new = await state.http.get("https://hacker-news.firebaseio.com/v0/newstories.json")
+    _check_429(new)
+    new.raise_for_status()
+    ids = list(set(top.json()[:15] + new.json()[:10]))[:20]
+    titles: list[str] = []
+    for sid in ids:
         try:
-            top = await c.get("https://hacker-news.firebaseio.com/v0/topstories.json")
-            new = await c.get("https://hacker-news.firebaseio.com/v0/newstories.json")
-            ids = list(set(top.json()[:15] + new.json()[:10]))
-            titles = []
-            for sid in ids[:20]:
-                try:
-                    s = await c.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json")
-                    d = s.json()
-                    if d.get("score", 0) > 10:
-                        titles.append(f"{d['title']} [{d.get('score',0)}pts]")
-                except Exception:
-                    pass
-            return titles
-        except Exception as e:
-            log.warning(f"HN error: {e}")
-            return []
+            s = await state.http.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json")
+            s.raise_for_status()
+            d = s.json()
+            if d.get("score", 0) > 10:
+                titles.append(f"{d.get('title','')} [{d.get('score',0)}pts]")
+        except Exception:
+            continue
+    return titles
 
 
+@_retry_http(3)
 async def fetch_reddit() -> list[str]:
-    """Hot posts from AI/tech/entrepreneurship subreddits."""
+    """Hot posts from AI/tech subreddits. One failure per subreddit does not stop others."""
     subreddits = [
         "artificial", "MachineLearning", "LocalLLaMA", "programming",
-        "entrepreneur", "SideProject", "webdev", "learnmachinelearning",
-        "OpenAI", "ClaudeAI", "Futurology",
+        "entrepreneur", "SideProject", "webdev", "OpenAI", "ClaudeAI", "Futurology",
     ]
-    titles = []
+    titles: list[str] = []
     headers = {"User-Agent": "DarwinAgent/3.0 (Genesis Node Marketplace)"}
-    async with httpx.AsyncClient(timeout=12, headers=headers) as c:
-        for sub in subreddits:
-            try:
-                res = await c.get(f"https://www.reddit.com/r/{sub}/hot.json?limit=5")
-                for post in res.json()["data"]["children"]:
-                    d = post["data"]
-                    if d.get("score", 0) > 50:
-                        titles.append(f"[r/{sub}] {d['title']}")
-            except Exception:
-                pass
+    for sub in subreddits:
+        try:
+            res = await state.http.get(
+                f"https://www.reddit.com/r/{sub}/hot.json?limit=5",
+                headers=headers,
+            )
+            _check_429(res)
+            res.raise_for_status()
+            for post in res.json().get("data", {}).get("children", []):
+                d = post.get("data", {})
+                if d.get("score", 0) > 50:
+                    titles.append(f"[r/{sub}] {d.get('title','')}")
+        except Exception as e:
+            log.warning("Reddit r/%s failed: %s. Continuing.", sub, e)
     return titles
+
+
+def _parse_feed_url(url: str) -> Any:
+    """Sync feed parse (run in thread)."""
+    return feedparser.parse(url)
 
 
 async def fetch_product_hunt() -> list[str]:
     """Latest Product Hunt launches."""
     try:
-        feed = feedparser.parse("https://www.producthunt.com/feed")
+        feed = await asyncio.to_thread(_parse_feed_url, "https://www.producthunt.com/feed")
         return [f"[PH] {e.title}: {getattr(e, 'summary', '')[:80]}" for e in feed.entries[:15]]
-    except Exception:
+    except Exception as e:
+        log.warning("Product Hunt failed: %s", e)
         return []
 
 
 async def fetch_google_trends() -> list[str]:
     """Google Trends for US, UK, global."""
-    trends = []
+    trends: list[str] = []
     geos = [("US", "United States"), ("GB", "United Kingdom"), ("", "Global")]
-    async with httpx.AsyncClient(timeout=10) as c:
-        for geo, name in geos:
-            try:
-                url = f"https://trends.google.com/trends/trendingsearches/daily/rss?geo={geo}"
-                feed = feedparser.parse(url)
-                for e in feed.entries[:8]:
-                    trends.append(f"[Google {name}] {e.title}")
-            except Exception:
-                pass
+    for geo, name in geos:
+        try:
+            url = f"https://trends.google.com/trends/trendingsearches/daily/rss?geo={geo}"
+            feed = await asyncio.to_thread(_parse_feed_url, url)
+            for e in feed.entries[:8]:
+                trends.append(f"[Google {name}] {e.title}")
+        except Exception as e:
+            log.warning("Google Trends %s failed: %s", name, e)
     return trends
 
 
+@_retry_http(4)
 async def fetch_github_trending() -> list[str]:
     """GitHub trending repos in AI/ML space."""
-    try:
-        headers = {"User-Agent": "DarwinAgent/3.0"}
-        if os.getenv("GITHUB_TOKEN"):
-            headers["Authorization"] = f"token {os.getenv('GITHUB_TOKEN')}"
-        date = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-        async with httpx.AsyncClient(timeout=10, headers=headers) as c:
-            res = await c.get(
-                "https://api.github.com/search/repositories",
-                params={
-                    "q": f"ai OR llm OR agent created:>{date} stars:>20",
-                    "sort": "stars", "order": "desc", "per_page": 10,
-                }
-            )
-            return [f"[GitHub] {r['full_name']}: {r.get('description','')[:80]} ⭐{r['stargazers_count']}"
-                    for r in res.json().get("items", [])]
-    except Exception:
-        return []
+    headers: dict[str, str] = {"User-Agent": "DarwinAgent/3.0"}
+    if config.github_token:
+        headers["Authorization"] = f"token {config.github_token}"
+    date = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    res = await state.http.get(
+        "https://api.github.com/search/repositories",
+        headers=headers,
+        params={
+            "q": f"ai OR llm OR agent created:>{date} stars:>20",
+            "sort": "stars", "order": "desc", "per_page": 10,
+        },
+    )
+    _check_429(res)
+    res.raise_for_status()
+    data = res.json() or {}
+    items = data.get("items") or []
+    return [f"[GitHub] {r.get('full_name','')}: {(r.get('description') or '')[:80]} ⭐{r.get('stargazers_count',0)}" for r in items]
 
 
+@_retry_http(3)
 async def fetch_arxiv_ai() -> list[str]:
     """Latest ArXiv AI/ML papers."""
-    try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            res = await c.get(
-                "https://export.arxiv.org/api/query",
-                params={
-                    "search_query": "cat:cs.AI OR cat:cs.LG",
-                    "sortBy": "submittedDate", "sortOrder": "descending",
-                    "max_results": 10,
-                }
-            )
-            titles = re.findall(r"<title>(.*?)</title>", res.text)
-            summaries = re.findall(r"<summary>(.*?)</summary>", res.text, re.DOTALL)
-            result = []
-            for t, s in zip(titles[1:], summaries):  # skip feed title
-                clean_s = re.sub(r"\s+", " ", s).strip()[:120]
-                result.append(f"[ArXiv] {t}: {clean_s}")
-            return result[:8]
-    except Exception:
-        return []
+    res = await state.http.get(
+        "https://export.arxiv.org/api/query",
+        params={
+            "search_query": "cat:cs.AI OR cat:cs.LG",
+            "sortBy": "submittedDate", "sortOrder": "descending",
+            "max_results": 10,
+        },
+    )
+    _check_429(res)
+    res.raise_for_status()
+    titles = re.findall(r"<title>(.*?)</title>", res.text)
+    summaries = re.findall(r"<summary>(.*?)</summary>", res.text, re.DOTALL)
+    result: list[str] = []
+    for t, s in zip(titles[1:], summaries):
+        clean_s = re.sub(r"\s+", " ", s).strip()[:120]
+        result.append(f"[ArXiv] {t}: {clean_s}")
+    return result[:8]
 
 
+@_retry_http(3)
 async def fetch_devto() -> list[str]:
     """Trending DEV.to articles."""
-    try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            res = await c.get(
-                "https://dev.to/api/articles",
-                params={"top": 7, "per_page": 10}
-            )
-            return [f"[DEV.to] {a['title']} ({a.get('positive_reactions_count',0)}❤)"
-                    for a in res.json()]
-    except Exception:
-        return []
+    res = await state.http.get(
+        "https://dev.to/api/articles",
+        params={"top": 7, "per_page": 10},
+    )
+    _check_429(res)
+    res.raise_for_status()
+    data = res.json()
+    return [f"[DEV.to] {a['title']} ({a.get('positive_reactions_count',0)}❤)" for a in data]
 
 
 async def fetch_indiehackers() -> list[str]:
     """Indie Hackers RSS feed."""
     try:
-        feed = feedparser.parse("https://www.indiehackers.com/feed.rss")
+        feed = await asyncio.to_thread(_parse_feed_url, "https://www.indiehackers.com/feed.rss")
         return [f"[IndieHackers] {e.title}" for e in feed.entries[:8]]
-    except Exception:
+    except Exception as e:
+        log.warning("IndieHackers failed: %s", e)
         return []
 
 
 async def gather_all_trends() -> str:
-    """Collect intelligence from all sources in parallel."""
-    log.info("🌐 Gathering multi-source intelligence...")
+    """
+    Collect intelligence from all sources in parallel. A single failing source
+    does not stop the process: exceptions are logged and we continue with available data.
+    """
+    log.info("Gathering multi-source intelligence...")
+    fetchers = [
+        ("HackerNews", fetch_hackernews()),
+        ("Reddit", fetch_reddit()),
+        ("ProductHunt", fetch_product_hunt()),
+        ("GoogleTrends", fetch_google_trends()),
+        ("GitHub", fetch_github_trending()),
+        ("ArXiv", fetch_arxiv_ai()),
+        ("DEV.to", fetch_devto()),
+        ("IndieHackers", fetch_indiehackers()),
+    ]
     results = await asyncio.gather(
-        fetch_hackernews(),
-        fetch_reddit(),
-        fetch_product_hunt(),
-        fetch_google_trends(),
-        fetch_github_trending(),
-        fetch_arxiv_ai(),
-        fetch_devto(),
-        fetch_indiehackers(),
+        *[f[1] for f in fetchers],
         return_exceptions=True,
     )
-
-    hn, reddit, ph, gt, gh, arxiv, devto, ih = results
     now = datetime.now(timezone.utc)
+    # Log any failure so we have visibility; keep successful lists
+    for (name, _), result in zip(fetchers, results):
+        if isinstance(result, Exception):
+            log.warning("Trend source %s failed: %s", name, result)
+    hn = results[0] if not isinstance(results[0], Exception) else []
+    reddit = results[1] if not isinstance(results[1], Exception) else []
+    ph = results[2] if not isinstance(results[2], Exception) else []
+    gt = results[3] if not isinstance(results[3], Exception) else []
+    gh = results[4] if not isinstance(results[4], Exception) else []
+    arxiv = results[5] if not isinstance(results[5], Exception) else []
+    devto = results[6] if not isinstance(results[6], Exception) else []
+    ih = results[7] if not isinstance(results[7], Exception) else []
 
     sections = [f"# INTELLIGENCE REPORT — {now.strftime('%Y-%m-%d %H:%M UTC')}"]
     sections.append(f"Day: {now.strftime('%A')}, Hour: {now.hour}:00 UTC")
@@ -324,7 +501,8 @@ async def gather_all_trends() -> str:
         sections.append("## 💡 IndieHackers\n" + "\n".join(f"- {t}" for t in ih[:8]))
 
     combined = "\n\n".join(sections)
-    log.info(f"📊 Intelligence: {combined.count(chr(10))} signals from {sum(1 for r in results if isinstance(r, list) and r)} sources")
+    ok_sources = sum(1 for r in results if isinstance(r, list) and r)
+    log.info("Intelligence: %d lines from %d sources", combined.count("\n"), ok_sources)
     return combined
 
 
@@ -358,10 +536,12 @@ async def get_successful_categories(client: Client) -> dict:
 
 async def get_recent_agents_performance(client: Client) -> str:
     """Get what Darwin created recently and how it performed."""
+    if not state.darwin_user_id:
+        return "No Darwin user yet."
     try:
         darwin_agents = client.table("agents")\
             .select("name, category_slug, total_tasks_completed, avg_rating, created_at")\
-            .eq("creator_id", DARWIN_USER_ID)\
+            .eq("creator_id", state.darwin_user_id)\
             .order("created_at", desc=True)\
             .limit(30)\
             .execute()
@@ -388,17 +568,132 @@ async def get_recent_agents_performance(client: Client) -> str:
         return f"Performance data unavailable: {e}"
 
 
-# ── Agent Generation ──────────────────────────────────────────────────────────
+def _normalize_name(name: str) -> str:
+    """Normalize agent name for deduplication: lowercase, sorted words."""
+    words = re.sub(r"[^a-z0-9\s]", "", str(name).lower()).split()
+    return " ".join(sorted(words)) if words else ""
 
-CATEGORIES = [
-    "research", "coding", "automation", "content",
-    "data", "marketing", "finance", "productivity", "ai-tools", "custom",
-]
 
-def build_darwin_system(category_performance: dict, agent_history: str) -> str:
-    """Build Darwin's generation prompt with learned context."""
-    top_cats = list(category_performance.keys())[:5] if category_performance else ["automation", "coding", "research"]
-    cat_str = ", ".join(top_cats) if top_cats else "automation, coding, research"
+def get_existing_names_and_slugs(client: Client) -> tuple[set[str], set[str]]:
+    """Return (normalized_names, slugs) for all agents to avoid duplicates."""
+    try:
+        res = client.table("agents").select("name, slug").execute()
+        data = res.data or []
+        names = {_normalize_name(r.get("name", "")) for r in data if r.get("name")}
+        slugs = {str(r.get("slug", "")).strip().lower() for r in data if r.get("slug")}
+        return (names, slugs)
+    except Exception as e:
+        log.warning(f"Existing names/slugs error: {e}")
+        return (set(), set())
+
+
+def get_darwin_created_today_per_category(client: Client) -> dict[str, int]:
+    """Count Darwin-created agents per category today (UTC)."""
+    if not state.darwin_user_id:
+        return {}
+    try:
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        res = client.table("agents")\
+            .select("category_slug")\
+            .eq("creator_id", state.darwin_user_id)\
+            .gte("created_at", today_start.isoformat())\
+            .execute()
+        cat_counts: dict[str, int] = {}
+        for r in (res.data or []):
+            c = (r.get("category_slug") or "custom").strip() or "custom"
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+        return cat_counts
+    except Exception as e:
+        log.warning(f"Darwin today per category error: {e}")
+        return {}
+
+
+# ── Agent Generation (Pydantic + repair loop + sanitization) ───────────────────
+
+class GeneratedAgent(BaseModel):
+    """Expected structure of one generated agent from the LLM."""
+
+    name: str = Field(..., min_length=1, max_length=120)
+    slug: str = Field(..., min_length=1, max_length=80)
+    description: str = Field(..., min_length=1, max_length=200)
+    long_description: str = Field(default="", max_length=2000)
+    category_slug: str = Field(..., min_length=1, max_length=50)
+    price_per_task: int = Field(default=75, ge=10, le=5000)
+    tags: list[str] = Field(default_factory=list, max_length=10)
+    capabilities: list[str] = Field(default_factory=list, max_length=15)
+    use_cases: list[str] = Field(default_factory=list, max_length=10)
+    example_input: str = Field(default="", max_length=500)
+    example_output: str = Field(default="", max_length=500)
+    system_prompt: str = Field(..., min_length=50, max_length=8000)
+
+
+def sanitize_system_prompt(text: str) -> str:
+    """
+    Sanitize system_prompt: remove forbidden strings and null bytes.
+    Returns cleaned string.
+    """
+    if not text or not isinstance(text, str):
+        return ""
+    out = text.replace("\x00", "").strip()
+    lower = out.lower()
+    for forbidden in FORBIDDEN_SYSTEM_PROMPT_PATTERNS:
+        if forbidden in lower:
+            out = re.sub(re.escape(forbidden), "", out, flags=re.IGNORECASE)
+    return out.strip() or ""
+
+
+def _repair_json_raw(raw: str) -> str:
+    """Strip markdown wrappers and extract JSON array for repair loop."""
+    stripped = raw.strip()
+    # Remove markdown code blocks
+    for pattern in [r"```json\s*([\s\S]*?)\s*```", r"```\s*([\s\S]*?)\s*```"]:
+        m = re.search(pattern, stripped)
+        if m:
+            stripped = m.group(1).strip()
+    # Find first [ and last ]
+    start = stripped.find("[")
+    end = stripped.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        stripped = stripped[start : end + 1]
+    return stripped
+
+
+def parse_agents_json(raw: str) -> list[dict[str, Any]]:
+    """
+    Parse LLM output into list of agent dicts. Uses repair loop: try direct parse,
+    then strip markdown/regex extraction, then validate with Pydantic (per-item).
+    Returns list of validated dicts (only valid items); invalid items are skipped.
+    """
+    repaired = _repair_json_raw(raw)
+    parsed: list[dict[str, Any]] = []
+    try:
+        data = json.loads(repaired)
+        if not isinstance(data, list):
+            return []
+        for i, item in enumerate(data):
+            if not isinstance(item, dict):
+                continue
+            try:
+                agent = GeneratedAgent.model_validate(item)
+                # Apply sanitization
+                agent.system_prompt = sanitize_system_prompt(agent.system_prompt)
+                if len(agent.system_prompt) < 50:
+                    log.warning("Agent %s: system_prompt too short after sanitization, skipping", item.get("name"))
+                    continue
+                parsed.append(agent.model_dump())
+            except Exception as e:
+                log.warning("Agent %d (%s) validation failed: %s", i, item.get("name"), e)
+        return parsed
+    except json.JSONDecodeError as e:
+        log.warning("JSON decode failed after repair: %s", e)
+        return []
+
+
+def build_darwin_system(category_performance: dict[str, Any], agent_history: str) -> str:
+    """Build Darwin's generation prompt with learned context. Uses categories from state."""
+    cats = state.categories or ["automation", "coding", "research"]
+    top_cats = list(category_performance.keys())[:5] if category_performance else cats[:3]
+    cat_str = ", ".join(top_cats) if top_cats else ", ".join(cats[:3])
 
     return f"""You are DARWIN v3 — the most advanced AI agent architect in existence.
 Your mission: create extraordinary AI agents that people immediately want to deploy.
@@ -408,7 +703,7 @@ Your mission: create extraordinary AI agents that people immediately want to dep
 
 ## MARKET INTELLIGENCE (Category Success)
 Most successful categories by user demand: {cat_str}
-All available categories: {', '.join(CATEGORIES)}
+All available categories: {', '.join(cats)}
 
 ## WHAT MAKES A GREAT AGENT
 1. **Solves a BURNING problem** people face right now (not theoretical)
@@ -458,11 +753,50 @@ Generate agents that will make users say "I need this RIGHT NOW."
 """
 
 
-async def generate_agents(trends: str, category_performance: dict, agent_history: str) -> list[dict]:
-    """Generate agent ideas using maximum intelligence."""
-    llm_name = "Ollama" if USE_OLLAMA else "Claude Sonnet"
-    log.info(f"🧬 Generating agents with {llm_name}...")
+@retry(
+    retry=retry_if_exception_type((Exception,)),
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    reraise=True,
+)
+async def _call_ollama(system_prompt: str, user_message: str) -> str:
+    """Call Ollama with exponential backoff on failure."""
+    ai = _ollama_client()
+    # Use fewer tokens on CPU to avoid very long waits
+    max_tok = 2000 if not os.getenv("OLLAMA_GPU", "") else 6000
+    response = await ai.chat.completions.create(
+        model=config.ollama_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        max_tokens=max_tok,
+        temperature=0.9,
+    )
+    return response.choices[0].message.content or "[]"
 
+
+@retry(
+    retry=retry_if_exception_type((Exception,)),
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    reraise=True,
+)
+async def _call_claude(system_prompt: str, user_message: str) -> str:
+    """Call Claude with exponential backoff on failure (e.g. 429)."""
+    ai = _claude_client()
+    response = await ai.messages.create(
+        model=config.claude_model,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+        max_tokens=6000,
+        temperature=0.9,
+    )
+    return response.content[0].text if response.content else "[]"
+
+
+async def generate_agents(trends: str, category_performance: dict, agent_history: str) -> list[dict]:
+    """Generate agent ideas with retry and fallback LLM (Claude → Ollama)."""
     system_prompt = build_darwin_system(category_performance, agent_history)
     user_message = f"""Today's global intelligence signals:
 
@@ -474,62 +808,30 @@ Prioritize categories that perform well: {', '.join(list(category_performance.ke
 
 Return valid JSON array only:"""
 
-    if USE_OLLAMA:
-        ai = _ollama_client()
-        response = await ai.chat.completions.create(
-            model=OLLAMA_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            max_tokens=6000,
-            temperature=0.9,
-        )
-        raw = response.choices[0].message.content or "[]"
-    else:
-        ai = _claude_client()
-        response = await ai.messages.create(
-            model=CLAUDE_MODEL,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-            max_tokens=6000,
-            temperature=0.9,
-        )
-        raw = response.content[0].text if response.content else "[]"
+    primary_ollama = bool(config.ollama_url)
+    fallback_ollama = (not primary_ollama) and bool(config.ollama_url)
 
-    log.info(f"🤖 Raw response length: {len(raw)} chars")
-
-    # Parse JSON
-    agents = _extract_json(raw)
-    if agents:
-        log.info(f"✅ Parsed {len(agents)} agents from {llm_name}")
-        return agents
-
-    log.error("Failed to parse agents JSON")
-    return []
-
-
-def _extract_json(raw: str) -> list:
-    """Robustly extract JSON array from LLM response."""
-    # Try direct parse
-    try:
-        parsed = json.loads(raw.strip())
-        if isinstance(parsed, list):
-            return parsed
-    except Exception:
-        pass
-
-    # Try markdown code block
-    for pattern in [r"```json\s*([\s\S]*?)\s*```", r"```\s*([\s\S]*?)\s*```", r"\[[\s\S]*\]"]:
-        match = re.search(pattern, raw)
-        if match:
+    for attempt in range(1, config.llm_retries + 1):
+        for use_ollama in (primary_ollama, fallback_ollama):
+            if use_ollama and not config.ollama_url:
+                continue
+            if not use_ollama and not config.anthropic_api_key:
+                continue
+            llm_name = "Ollama" if use_ollama else "Claude Sonnet"
             try:
-                parsed = json.loads(match.group(1) if "```" in pattern else match.group())
-                if isinstance(parsed, list):
-                    return parsed
-            except Exception:
-                pass
+                log.info(f"🧬 Generating agents with {llm_name} (attempt {attempt})...")
+                raw = await (_call_ollama(system_prompt, user_message) if use_ollama else _call_claude(system_prompt, user_message))
+                log.info("Raw response length: %d chars", len(raw))
+                agents = parse_agents_json(raw)
+                if agents:
+                    log.info(f"✅ Parsed {len(agents)} agents from {llm_name}")
+                    return agents
+            except Exception as e:
+                log.warning(f"{llm_name} attempt {attempt} failed: {e}")
+                await asyncio.sleep(2**attempt)
+                continue
 
+    log.error("Failed to parse agents JSON after all retries")
     return []
 
 
@@ -575,7 +877,7 @@ def _score_agent(agent: dict) -> float:
         score += 0.5
 
     # Valid category
-    if agent.get("category_slug") in CATEGORIES:
+    if agent.get("category_slug") in (state.categories or []):
         score += 0.5
 
     # Sensible pricing
@@ -595,7 +897,13 @@ def _unique_slug(slug: str, existing: set) -> str:
     return f"{slug}-{suffix}"
 
 
-async def register_agent(client: Client, agent: dict, existing_slugs: set) -> Optional[str]:
+async def register_agent(
+    client: Client,
+    agent: dict,
+    existing_slugs: set,
+    existing_names: set,
+    today_per_category: dict[str, int],
+) -> Optional[str]:
     """Insert a quality-checked agent into Supabase. Returns agent ID on success."""
     try:
         name = str(agent.get("name", "")).strip()
@@ -608,15 +916,25 @@ async def register_agent(client: Client, agent: dict, existing_slugs: set) -> Op
             log.warning(f"Skipping agent (missing fields): {name}")
             return None
 
+        norm = _normalize_name(name)
+        if norm and norm in existing_names:
+            log.info(f"Skipping duplicate name: {name}")
+            return None
+
+        category = agent.get("category_slug", "custom")
+        valid_cats = state.categories or ["research", "coding", "automation", "content", "data", "marketing", "finance", "productivity", "ai-tools", "custom"]
+        if category not in valid_cats:
+            category = "custom"
+        if today_per_category.get(category, 0) >= config.max_per_category_per_day:
+            log.info("Skipping %s: category %s already has %d today", name, category, config.max_per_category_per_day)
+            return None
+
         slug = _unique_slug(slug, existing_slugs)
         existing_slugs.add(slug)
+        existing_names.add(norm)
 
         price = int(agent.get("price_per_task", 75))
         price = max(10, min(price, 5000))
-
-        category = agent.get("category_slug", "custom")
-        if category not in CATEGORIES:
-            category = "custom"
 
         tags = agent.get("tags", [])
         if not isinstance(tags, list):
@@ -635,7 +953,7 @@ async def register_agent(client: Client, agent: dict, existing_slugs: set) -> Op
         }
 
         res = client.table("agents").insert({
-            "creator_id":       DARWIN_USER_ID,
+            "creator_id":       state.darwin_user_id,
             "name":             name,
             "slug":             slug,
             "description":      desc,
@@ -651,6 +969,7 @@ async def register_agent(client: Client, agent: dict, existing_slugs: set) -> Op
 
         if res.data:
             agent_id = res.data[0]["id"]
+            today_per_category[category] = today_per_category.get(category, 0) + 1
             log.info(f"✅ {name} (@{slug}) — ⚡{price}cr — {category}")
             return agent_id
         return None
@@ -662,19 +981,19 @@ async def register_agent(client: Client, agent: dict, existing_slugs: set) -> Op
 
 # ── Darwin Run ────────────────────────────────────────────────────────────────
 
-async def darwin_run(label: str = "scheduled"):
+async def darwin_run(label: str = "scheduled") -> int:
     """Main Darwin execution: intelligence → generation → quality filter → register."""
     log.info("=" * 65)
-    log.info(f"🦠 DARWIN v3 — {label.upper()} — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+    log.info("DARWIN v3 — %s — %s", label.upper(), datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
     log.info("=" * 65)
 
     await ensure_darwin_user()
-    client = db()
+    client = get_db()
 
-    # Get context
-    existing = client.table("agents").select("slug").execute()
-    existing_slugs = {r["slug"] for r in (existing.data or [])}
-    log.info(f"📦 Existing agents: {len(existing_slugs)}")
+    # Get context: existing names/slugs + Darwin's today per category
+    existing_names, existing_slugs = get_existing_names_and_slugs(client)
+    today_per_category = get_darwin_created_today_per_category(client)
+    log.info(f"📦 Existing agents: {len(existing_slugs)} slugs, {len(existing_names)} names; today per category: {today_per_category}")
 
     category_performance = await get_successful_categories(client)
     agent_history = await get_recent_agents_performance(client)
@@ -699,14 +1018,14 @@ async def darwin_run(label: str = "scheduled"):
     for a, s in scored:
         log.info(f"  {'✅' if s > 5 else '❌'} {a.get('name','?')} — score: {s:.1f}/10")
 
-    qualified = [(a, s) for a, s in scored if s > 4.0][:AGENTS_PER_RUN]
+    qualified = [(a, s) for a, s in scored if s > 4.0][:config.agents_per_run]
     log.info(f"✅ {len(qualified)}/{len(scored)} agents passed quality filter")
 
-    # Register
+    # Register (with dedup and per-category limit)
     registered = 0
     registered_ids = []
     for agent, score in qualified:
-        agent_id = await register_agent(client, agent, existing_slugs)
+        agent_id = await register_agent(client, agent, existing_slugs, existing_names, today_per_category)
         if agent_id:
             registered += 1
             registered_ids.append(agent_id)
@@ -725,10 +1044,10 @@ async def darwin_run(label: str = "scheduled"):
         pass
 
     # Notify owner if successful
-    if registered > 0 and OWNER_USER_ID:
+    if registered > 0 and config.owner_user_id:
         try:
             client.table("notifications").insert({
-                "user_id": OWNER_USER_ID,
+                "user_id": config.owner_user_id,
                 "type": "info",
                 "title": f"🦠 Darwin published {registered} new agents",
                 "body": f"{label.title()} run: {registered} agents added to marketplace based on today's trends.",
@@ -737,34 +1056,121 @@ async def darwin_run(label: str = "scheduled"):
         except Exception:
             pass
 
-    log.info(f"🎉 DARWIN COMPLETE: {registered}/{AGENTS_PER_RUN} agents registered")
+    log.info("DARWIN COMPLETE: %d/%d agents registered", registered, config.agents_per_run)
     return registered
 
 
-def run_sync(label: str = "scheduled"):
-    asyncio.run(darwin_run(label))
+async def run_with_lock(label: str = "scheduled") -> int:
+    """Run Darwin with a lock so only one run at a time."""
+    async with state._run_lock:
+        if state.running:
+            log.warning("Run already in progress, skipping")
+            return 0
+        state.running = True
+    try:
+        return await darwin_run(label)
+    finally:
+        async with state._run_lock:
+            state.running = False
+
+
+def run_sync(label: str = "scheduled") -> int:
+    return asyncio.run(run_with_lock(label))
+
+
+# ── HTTP server (health + cron trigger) ────────────────────────────────────────
+
+UTC_HOURS = (6, 14, 22)  # 06:00, 14:00, 22:00 UTC
+
+
+def _seconds_until_next_run() -> float:
+    now = datetime.now(timezone.utc)
+    for h in UTC_HOURS:
+        next_run = now.replace(hour=h, minute=0, second=0, microsecond=0)
+        if next_run > now:
+            return (next_run - now).total_seconds()
+    next_run = (now + timedelta(days=1)).replace(hour=UTC_HOURS[0], minute=0, second=0, microsecond=0)
+    return (next_run - now).total_seconds()
+
+
+async def scheduler_loop():
+    """Every 8h at 06:00, 14:00, 22:00 UTC run Darwin."""
+    while True:
+        secs = _seconds_until_next_run()
+        log.info(f"⏰ Next Darwin run in {secs / 3600:.1f}h (06/14/22 UTC)")
+        await asyncio.sleep(secs)
+        await run_with_lock("scheduled")
+
+
+async def handle_health(_: web.Request) -> web.Response:
+    return web.json_response({"ok": True, "service": "darwin"})
+
+
+async def handle_run(request: web.Request) -> web.Response:
+    if config.cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth != f"Bearer {config.cron_secret}":
+            return web.json_response({"error": "Unauthorized"}, status=401)
+    if state.running:
+        return web.json_response({"status": "running", "message": "Run already in progress"}, status=409)
+    label = "cron"
+    try:
+        if request.body_exists:
+            body = await request.json()
+            label = str(body.get("label", "cron"))[:32]
+    except Exception:
+        pass
+    asyncio.create_task(run_with_lock(label))
+    return web.json_response({"status": "started", "label": label}, status=202)
+
+
+def create_app() -> web.Application:
+    app = web.Application()
+    app.router.add_get("/health", handle_health)
+    app.router.add_post("/run", handle_run)
+    return app
 
 
 # ── Entry Point ───────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+async def init_http_client() -> None:
+    """Create shared HTTP client and set on state. Call once at startup."""
+    if state._http_client is None:
+        state.set_http_client(httpx.AsyncClient(timeout=30.0))
+        log.info("Shared HTTP client initialized")
+
+
+async def main_async() -> None:
+    """Cloud-native entry: single run (--now) or long-running server."""
     import sys
 
+    await init_http_client()
+    load_categories_from_db()
+
     if "--now" in sys.argv:
-        log.info("▶ Darwin immediate run (--now)")
-        run_sync("manual")
-    else:
-        log.info("⏰ Darwin v3 scheduled: 06:00, 14:00, 22:00 UTC daily")
-        log.info("   Pass --now to run immediately")
+        log.info("Darwin single run (--now)")
+        try:
+            await run_with_lock("manual")
+        finally:
+            await state.close_http_client()
+        return
 
-        # Run once on startup
-        run_sync("startup")
+    log.info("Darwin v3 — HTTP server + scheduler (06:00, 14:00, 22:00 UTC)")
+    log.info("GET /health; POST /run (Bearer CRON_SECRET)")
+    app = create_app()
 
-        # Schedule 3x daily
-        schedule.every().day.at("06:00").do(run_sync, label="morning")
-        schedule.every().day.at("14:00").do(run_sync, label="afternoon")
-        schedule.every().day.at("22:00").do(run_sync, label="evening")
+    asyncio.create_task(scheduler_loop())
+    asyncio.create_task(run_with_lock("startup"))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", config.port)
+    await site.start()
+    log.info("HTTP server listening on 0.0.0.0:%d", config.port)
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await state.close_http_client()
 
-        while True:
-            schedule.run_pending()
-            time.sleep(60)
+
+if __name__ == "__main__":
+    asyncio.run(main_async())

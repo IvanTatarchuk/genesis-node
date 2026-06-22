@@ -6,7 +6,7 @@ export const maxDuration = 60;
 // Called by Vercel Cron every 6 hours: 0 */6 * * *
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const cronSecret = req.headers.get("x-vercel-cron-signature") ?? req.headers.get("authorization");
-  if (process.env.NODE_ENV === "production" && cronSecret !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || cronSecret !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

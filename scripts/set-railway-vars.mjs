@@ -1,8 +1,9 @@
-﻿const TOKEN   = 'c905f393-d52c-4e04-8a2c-33ccf5811eb7';
-const PROJECT = '7f2fe8ec-7248-4429-b14a-419c90e5400c';
-const ENV     = 'c6c54dd9-9a95-484e-ad70-15d9dd9b9537';
+﻿const TOKEN   = process.env.RAILWAY_TOKEN;
+if (!TOKEN) { console.error('RAILWAY_TOKEN not set. Export it or add to .env'); process.exit(1); }
+const PROJECT = process.env.RAILWAY_PROJECT_ID ?? '7f2fe8ec-7248-4429-b14a-419c90e5400c';
+const ENV     = process.env.RAILWAY_ENV_ID ?? 'c6c54dd9-9a95-484e-ad70-15d9dd9b9537';
 const API     = 'https://backboard.railway.app/graphql/v2';
-const OLLAMA  = 'https://ollama-production-9f52.up.railway.app';
+const OLLAMA  = process.env.OLLAMA_URL ?? 'https://ollama-production-9f52.up.railway.app';
 const SERVICES = { orchestrator: 'e3fb6c0f-3a53-4678-a475-8b8666ab2f6d', darwin: 'e042721f-6d4d-4aeb-97a7-aed038ed4917' };
 
 async function setVar(serviceId, name, value) {

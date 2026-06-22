@@ -50,7 +50,7 @@ async function callLLM(systemPrompt: string, userMessage: string): Promise<strin
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const secret = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (secret !== process.env.CRON_SECRET && process.env.NODE_ENV === "production") {
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return executeNextTask();

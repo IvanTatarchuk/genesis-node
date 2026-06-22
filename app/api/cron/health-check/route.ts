@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
+import { verifyCronSecret } from "@/lib/api-utils";
 
 export const maxDuration = 60;
 
 // Called by Vercel Cron every 6 hours: 0 */6 * * *
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const cronSecret = req.headers.get("x-vercel-cron-signature") ?? req.headers.get("authorization");
-  if (process.env.NODE_ENV === "production" && cronSecret !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authErr = verifyCronSecret(req);
+  if (authErr) return authErr;
 
   const service = createServiceClient();
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 const REASONS = ["spam", "harmful", "misleading", "copyright", "other"] as const;
 
@@ -7,15 +7,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { slug } = await params;
-  const service = createServiceClient();
 
   const { data: agent } = await service
     .from("agents")

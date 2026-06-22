@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const service = createServiceClient();
   const { data, error } = await service
     .from("saved_agents")
     .select("agent_id")
@@ -24,19 +20,15 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { agent_id: agentId } = await req.json();
   if (!agentId || typeof agentId !== "string") {
     return NextResponse.json({ error: "agent_id required" }, { status: 422 });
   }
 
-  const service = createServiceClient();
   const { error } = await service.from("saved_agents").upsert(
     { user_id: user.id, agent_id: agentId },
     { onConflict: "user_id,agent_id" }
@@ -50,12 +42,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { searchParams } = new URL(req.url);
   const agentId = searchParams.get("agent_id");
@@ -63,7 +52,6 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "agent_id required" }, { status: 422 });
   }
 
-  const service = createServiceClient();
   const { error } = await service
     .from("saved_agents")
     .delete()

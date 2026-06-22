@@ -1,10 +1,11 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
+import { createServiceClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Login required" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const body = await req.json();
   const topic: string = body?.topic?.trim() ?? "";
@@ -12,8 +13,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!topic || topic.length < 10) return NextResponse.json({ error: "Topic too short" }, { status: 422 });
   if (participants.length < 2) return NextResponse.json({ error: "Select at least 2 scientists" }, { status: 422 });
-
-  const service = createServiceClient();
 
   const { data: session, error: sessionErr } = await service
     .from("lab_sessions")
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const taskIds: string[] = [];
   for (const agent of agents) {
     const config = (agent.config_blob as Record<string, unknown>) ?? {};
-    const emoji = (config.emoji as string) ?? "🧠";
+    const emoji = (config.emoji as string) ?? "\u{1F9E0}";
     const colleagues = agents.filter(a => a.slug !== agent.slug).map(a => a.name).join(", ");
     const goal = "[LAB SESSION " + session.id + "] " + topic + ". Colleagues: " + colleagues + ". Use your expertise to generate startup/SaaS ideas. Include: company name, problem, solution, tech stack, revenue model, ARR estimate. TASK_COMPLETE: summary";
 

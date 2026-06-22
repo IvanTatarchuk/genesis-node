@@ -1,52 +1,24 @@
-/**
- * MATADORA API — wallet, transactions, exchange
- * GET  /api/matadora           → wallet + recent transactions + market rate
- * POST /api/matadora/earn      → award MATADORA for actions
- * POST /api/matadora/exchange  → request exchange MATADORA → USD
- */
+import { NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
-import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
-import { rateLimit, GENERAL_RATE_LIMIT, getClientIp } from "@/lib/rate-limit";
+export async function GET(): Promise<NextResponse> {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Ensure wallet exists
+  await service.from("matadora_wallets").upsert(
+    { profile_id: user.id, balance: 0 },
+    { onConflict: "profile_id", ignoreDuplicates: true },
+  );
 
-  const service = createServiceClient();
+  const [walletRes, txnRes] = await Promise.all([
+    service.from("matadora_wallets").select("*").eq("profile_id", user.id).single(),
+    service.from("matadora_transactions").select("*").eq("profile_id", user.id).order("created_at", { ascending: false }).limit(50),
+  ]);
 
-  // Get or create wallet
-  let { data: wallet } = await service
-    .from("matadora_wallets")
-    .select("*")
-    .eq("profile_id", user.id)
-    .single();
-
-  if (!wallet) {
-    const { data: created } = await service
-      .from("matadora_wallets")
-      .insert({ profile_id: user.id, balance: 0 })
-      .select("*")
-      .single();
-    wallet = created;
-  }
-
-  // Recent transactions
-  const { data: transactions } = await service
-    .from("matadora_transactions")
-    .select("*")
-    .eq("profile_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  // Current market rate
-  const { data: rate } = await service
-    .from("matadora_market_rates")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  return NextResponse.json({ wallet, transactions: transactions ?? [], rate });
+  return NextResponse.json({
+    wallet:       walletRes.data ?? { balance: 0, total_earned: 0, total_spent: 0 },
+    transactions: txnRes.data   ?? [],
+  });
 }

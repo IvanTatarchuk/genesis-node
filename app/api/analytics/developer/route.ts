@@ -1,14 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const service = createServiceClient();
+export async function GET(): Promise<NextResponse> {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   // Parallel fetch: daily revenue (last 30 days) + per-agent stats + profile
   const [

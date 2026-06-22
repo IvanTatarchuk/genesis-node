@@ -46,3 +46,30 @@ export const DAYS_OF_WEEK = [
   { value: 5, label: "Friday" },
   { value: 6, label: "Saturday" },
 ];
+
+export function computeNextRun(
+  frequency: "hourly" | "daily" | "weekly" | "monthly",
+  runAtHour: number,
+  runAtDow: number,
+): Date {
+  const now = new Date();
+  let next = new Date(now);
+  next.setMinutes(0, 0, 0);
+  next.setHours(runAtHour);
+
+  if (frequency === "hourly") {
+    next = new Date(now);
+    next.setMinutes(0, 0, 0);
+    next.setHours(now.getHours() + 1);
+  } else if (frequency === "daily") {
+    if (next <= now) next = addDays(next, 1);
+  } else if (frequency === "weekly") {
+    const currentDow = now.getDay();
+    const daysUntil = (runAtDow - currentDow + 7) % 7 || 7;
+    next = addDays(next, daysUntil);
+  } else if (frequency === "monthly") {
+    next = addMonths(next, 1);
+    next.setDate(1);
+  }
+  return next;
+}

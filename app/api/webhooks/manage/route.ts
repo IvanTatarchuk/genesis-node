@@ -6,18 +6,17 @@
  * PATCH  /api/webhooks/manage?id=X  — update webhook (toggle active / change url)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 const ALLOWED_EVENTS = ["task.completed", "task.failed", "task.started", "task.cancelled"];
 const MAX_WEBHOOKS_PER_USER = 5;
 
 // ── GET — list ──────────────────────────────────────────────────────────────
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  const service = createServiceClient();
   const { data: webhooks } = await service
     .from("dev_webhooks")
     .select("id, url, events, is_active, created_at, last_fired_at, failure_count, secret")
@@ -35,11 +34,9 @@ export async function GET(): Promise<NextResponse> {
 
 // ── POST — register ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const service = createServiceClient();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   // Check limit
   const { count } = await service
@@ -79,14 +76,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 // ── DELETE — remove ─────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const service = createServiceClient();
   const { error } = await service
     .from("dev_webhooks")
     .delete()
@@ -99,9 +95,9 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
 // ── PATCH — update ───────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -112,7 +108,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (body.url?.startsWith("https://"))    updates.url      = body.url;
   if (Array.isArray(body.events))          updates.events   = body.events.filter((e) => ALLOWED_EVENTS.includes(e));
 
-  const service = createServiceClient();
   const { error } = await service
     .from("dev_webhooks")
     .update(updates)

@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { agentId, rating, comment } = await req.json();
 
   if (!agentId || typeof rating !== "number" || rating < 1 || rating > 5) {
     return NextResponse.json({ error: "Invalid input" }, { status: 422 });
   }
-
-  const service = createServiceClient();
 
   // Verify user has completed a task with this agent
   const { data: task } = await service

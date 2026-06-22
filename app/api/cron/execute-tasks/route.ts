@@ -1,5 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
+import { verifyCronSecret } from "@/lib/api-utils";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -49,10 +50,8 @@ async function callLLM(systemPrompt: string, userMessage: string): Promise<strin
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const secret = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (secret !== process.env.CRON_SECRET && process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authErr = verifyCronSecret(req);
+  if (authErr) return authErr;
   return executeNextTask();
 }
 

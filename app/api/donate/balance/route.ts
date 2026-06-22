@@ -1,13 +1,12 @@
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 /** GET /api/donate/balance — Current user balance (for donate UI) */
 export async function GET() {
-  const sb = await createServerSupabaseClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  const service = createServiceClient();
   const { data } = await service
     .from("profiles")
     .select("balance")

@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
+import { createServiceClient } from "@/lib/supabase-server";
 import type { Agent, Profile } from "@/lib/database.types";
 import { rateLimit, TASK_RATE_LIMIT } from "@/lib/rate-limit";
 
 // POST /api/tasks  — authenticated client creates a new task
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, supabase } = auth;
 
   // Rate limit: 10 task creations per user per minute
   const rl = rateLimit(`tasks:${user.id}`, TASK_RATE_LIMIT);
@@ -86,13 +81,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 // DELETE /api/tasks?id=<taskId>  — cancel a pending task and get a refund
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const service  = createServiceClient();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user } = auth;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const service = createServiceClient();
 
   const taskId = req.nextUrl.searchParams.get("id");
   if (!taskId) {

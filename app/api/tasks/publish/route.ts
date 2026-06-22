@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { task_id, is_public } = await req.json() as { task_id: string; is_public: boolean };
   if (!task_id) return NextResponse.json({ error: "Missing task_id" }, { status: 400 });
-
-  const service = createServiceClient();
 
   // Verify ownership + completed status
   const { data: task } = await service

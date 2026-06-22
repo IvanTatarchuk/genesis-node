@@ -1,17 +1,15 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { workspace_id, email } = await req.json() as { workspace_id: string; email: string };
   if (!workspace_id || !email?.includes("@")) {
     return NextResponse.json({ error: "workspace_id and valid email required" }, { status: 400 });
   }
-
-  const service = createServiceClient();
 
   // Verify inviter is owner/admin
   const { data: membership } = await service
@@ -56,11 +54,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const token = req.nextUrl.searchParams.get("token");
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Login required to accept invite" }, { status: 401 });
-
-  const service = createServiceClient();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { data: invite } = await service
     .from("workspace_invites")

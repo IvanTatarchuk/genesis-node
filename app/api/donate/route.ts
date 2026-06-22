@@ -1,108 +1,73 @@
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
-const MIN_CREDITS = 10;
-const MAX_CREDITS = 10_000;
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-/** POST /api/donate — Donate credits to a developer (creator) or to the platform */
-export async function POST(req: NextRequest) {
-  const sb = await createServerSupabaseClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await req.json();
-  const { recipientType, recipientId, amount: rawAmount } = body as {
-    recipientType: "developer" | "platform";
-    recipientId?: string;
+  const body = await req.json() as {
+    recipient_id: string;
     amount: number;
+    message?: string;
   };
 
-  const amount = Math.floor(Number(rawAmount));
-  if (!Number.isFinite(amount) || amount < MIN_CREDITS || amount > MAX_CREDITS) {
-    return NextResponse.json(
-      { error: `Amount must be between ${MIN_CREDITS} and ${MAX_CREDITS} credits` },
-      { status: 400 },
-    );
+  const { recipient_id, amount, message } = body;
+
+  if (!recipient_id || typeof amount !== "number" || amount < 1) {
+    return NextResponse.json({ error: "recipient_id and a positive amount are required" }, { status: 422 });
+  }
+  if (recipient_id === user.id) {
+    return NextResponse.json({ error: "Cannot donate to yourself" }, { status: 422 });
   }
 
-  if (recipientType !== "developer" && recipientType !== "platform") {
-    return NextResponse.json({ error: "Invalid recipientType" }, { status: 400 });
-  }
-
-  if (recipientType === "developer" && !recipientId) {
-    return NextResponse.json({ error: "recipientId required for developer donation" }, { status: 400 });
-  }
-
-  if (recipientType === "developer" && recipientId === user.id) {
-    return NextResponse.json({ error: "You cannot donate to yourself" }, { status: 400 });
-  }
-
-  const service = createServiceClient();
-
-  const { data: senderProfile } = await service
+  // Check sender's balance
+  const { data: sender } = await service
     .from("profiles")
     .select("balance, display_name")
     .eq("id", user.id)
     .single() as { data: { balance: number; display_name: string | null } | null };
 
-  if (!senderProfile || senderProfile.balance < amount) {
-    return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
+  if (!sender || sender.balance < amount) {
+    return NextResponse.json({ error: "Insufficient credits", balance: sender?.balance ?? 0 }, { status: 402 });
   }
 
-  const senderName = senderProfile.display_name ?? "Someone";
+  // Check recipient exists
+  const { data: recipient } = await service
+    .from("profiles")
+    .select("id, balance, display_name")
+    .eq("id", recipient_id)
+    .single() as { data: { id: string; balance: number; display_name: string | null } | null };
 
-  if (recipientType === "developer") {
-    const { data: recipient } = await service
-      .from("profiles")
-      .select("id, display_name")
-      .eq("id", recipientId)
-      .single() as { data: { id: string; display_name: string | null } | null };
-
-    if (!recipient) {
-      return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
-    }
-
-    const recipientName = recipient.display_name ?? "Creator";
-
-    const txnOut = await service.from("credit_transactions").insert([
-      {
-        profile_id: user.id,
-        amount: -amount,
-        type: "boost",
-        reference_id: recipient.id,
-        description: `Donation to ${recipientName}`,
-      },
-      {
-        profile_id: recipient.id,
-        amount,
-        type: "bonus",
-        reference_id: user.id,
-        description: `Donation from ${senderName}`,
-      },
-    ]);
-    if (txnOut.error) throw txnOut.error;
-
-    await service.from("profiles").update({ balance: senderProfile.balance - amount }).eq("id", user.id);
-    const { data: recProfile } = await service.from("profiles").select("balance, total_earned").eq("id", recipient.id).single() as { data: { balance: number; total_earned: number } | null };
-    if (recProfile) {
-      await service.from("profiles").update({
-        balance: recProfile.balance + amount,
-        total_earned: recProfile.total_earned + amount,
-      }).eq("id", recipient.id);
-    }
-  } else {
-    const txnOut = await service.from("credit_transactions").insert({
-      profile_id: user.id,
-      amount: -amount,
-      type: "boost",
-      reference_id: "platform",
-      description: "Donation to Genesis Node",
-    });
-    if (txnOut.error) throw txnOut.error;
-
-    await service.from("profiles").update({ balance: senderProfile.balance - amount }).eq("id", user.id);
+  if (!recipient) {
+    return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, amount });
+  // Transfer credits
+  const refId = crypto.randomUUID();
+
+  const [senderUpdate, recipientUpdate, senderTxn, recipientTxn] = await Promise.all([
+    service.from("profiles").update({ balance: sender.balance - amount }).eq("id", user.id),
+    service.from("profiles").update({ balance: recipient.balance + amount }).eq("id", recipient_id),
+    service.from("credit_transactions").insert({
+      profile_id:   user.id,
+      amount:       -amount,
+      type:         "donation_sent",
+      reference_id: refId,
+      description:  `Donated ${amount} credits to ${recipient.display_name ?? "user"}`,
+    }),
+    service.from("credit_transactions").insert({
+      profile_id:   recipient_id,
+      amount,
+      type:         "donation_received",
+      reference_id: refId,
+      description:  `Received ${amount} credits from ${sender.display_name ?? "user"}${message ? ` — "${message}"` : ""}`,
+    }),
+  ]);
+
+  if (senderUpdate.error || recipientUpdate.error || senderTxn.error || recipientTxn.error) {
+    return NextResponse.json({ error: "Transfer failed" }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, amount, recipient_id });
 }
-

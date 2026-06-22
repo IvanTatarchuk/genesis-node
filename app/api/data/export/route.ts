@@ -1,10 +1,9 @@
 /**
  * GET /api/data/export
  * Returns a complete JSON export of all user's data on the platform
- * Streams a downloadable JSON file
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -15,11 +14,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Too many export requests. Try again later." }, { status: 429 });
   }
 
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const service = createServiceClient();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   // Fetch all user data in parallel
   const [

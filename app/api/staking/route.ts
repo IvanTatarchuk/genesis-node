@@ -4,16 +4,15 @@
  * PUT  /api/staking  — claim completed stake
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 const APY: Record<number, number> = { 30: 5, 60: 10, 90: 15 };
 
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  const service = createServiceClient();
   const { data: stakes } = await service.from("matadora_stakes").select("*").eq("profile_id", user.id).order("created_at", { ascending: false });
   const { data: wallet } = await service.from("matadora_wallets").select("balance").eq("profile_id", user.id).single() as { data: { balance: number } | null };
 
@@ -30,15 +29,14 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { amount, duration_days } = await req.json() as { amount: number; duration_days: number };
   if (!amount || amount < 100) return NextResponse.json({ error: "Minimum stake is 100 MATADORA" }, { status: 400 });
   if (!APY[duration_days]) return NextResponse.json({ error: "Duration must be 30, 60, or 90 days" }, { status: 400 });
 
-  const service = createServiceClient();
   const { data: wallet } = await service.from("matadora_wallets").select("balance, total_spent").eq("profile_id", user.id).single() as { data: { balance: number; total_spent: number } | null };
   if (!wallet || wallet.balance < amount) return NextResponse.json({ error: "Insufficient MATADORA balance" }, { status: 400 });
 
@@ -61,12 +59,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { stake_id } = await req.json() as { stake_id: string };
-  const service = createServiceClient();
 
   const { data: stake } = await service.from("matadora_stakes").select("*").eq("id", stake_id).eq("profile_id", user.id).single() as { data: { id: string; amount: number; apy: number; duration_days: number; status: string; ends_at: string; reward_earned: number } | null };
   if (!stake) return NextResponse.json({ error: "Stake not found" }, { status: 404 });

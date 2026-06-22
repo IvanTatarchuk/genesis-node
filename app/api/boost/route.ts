@@ -1,5 +1,5 @@
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 const BOOST_PLANS = {
   "1d":  { credits: 50,  days: 1,  label: "1 день" },
@@ -9,9 +9,9 @@ const BOOST_PLANS = {
 } as const;
 
 export async function POST(req: NextRequest) {
-  const sb = await createServerSupabaseClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, supabase, service } = auth;
 
   const { agentSlug, plan } = await req.json();
   const boost = BOOST_PLANS[plan as keyof typeof BOOST_PLANS];
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Verify agent belongs to user
-  const { data: agent } = await sb
+  const { data: agent } = await supabase
     .from("agents")
     .select("id, creator_id")
     .eq("slug", agentSlug)
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Check balance
-  const { data: profile } = await sb
+  const { data: profile } = await supabase
     .from("profiles")
     .select("balance")
     .eq("id", user.id)
@@ -45,16 +45,15 @@ export async function POST(req: NextRequest) {
   boostUntil.setDate(boostUntil.getDate() + boost.days);
 
   // Deduct credits and activate boost
-  const sba = sb as ReturnType<typeof createServiceClient>;
-  await sba.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
-  await sba.from("agents").update({
+  await service.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
+  await service.from("agents").update({
     is_boosted: true,
     boost_ends_at: boostUntil.toISOString(),
     is_featured: true,
   }).eq("id", agent.id);
 
   // Credit transaction log
-  await sba.from("credit_transactions").insert({
+  await service.from("credit_transactions").insert({
     user_id: user.id,
     amount: -boost.credits,
     type: "boost",

@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { name } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 422 });
-
-  const service = createServiceClient();
 
   // Check tier
   const { data: profile } = await service.from("profiles").select("subscription_tier").eq("id", user.id).single();

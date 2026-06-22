@@ -1,27 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
-import type { Profile } from "@/lib/database.types";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
+import { getStripe, getOrCreateStripeCustomer } from "@/lib/stripe-helpers";
 import { rateLimit, CHECKOUT_RATE_LIMIT, getClientIp } from "@/lib/rate-limit";
 
-// Credit packs: credits → price in cents (3× previous prices)
+// Credit packs: credits -> price in cents (3x previous prices)
 const CREDIT_PRICES: Record<number, number> = {
   500:  1500,   // $15.00
   2000: 6000,   // $60.00
   5000: 15000,  // $150.00
 };
 
-function getStripe() {
-  const Stripe = require("stripe");
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2026-02-25.clover" });
-}
-
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   // Rate limit: 5 checkout sessions per user per minute
   const ip = getClientIp(req);
@@ -37,27 +29,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid credit pack" }, { status: 422 });
   }
 
-  // Get or create Stripe customer
-  const service = createServiceClient();
-  const profileRes = await service.from("profiles").select("*").eq("id", user.id).single();
-  const profile = profileRes.data as unknown as Profile;
-
+  const customerId = await getOrCreateStripeCustomer(service, user.id, user.email, null);
   const stripe = getStripe();
-  let customerId = profile?.stripe_customer_id;
-
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email,
-      name:  profile?.display_name ?? undefined,
-      metadata: { supabase_user_id: user.id },
-    });
-    customerId = customer.id;
-    await service
-      .from("profiles")
-      .update({ stripe_customer_id: customerId })
-      .eq("id", user.id);
-  }
-
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
 
   const session = await stripe.checkout.sessions.create({

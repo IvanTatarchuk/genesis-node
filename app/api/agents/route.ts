@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 import type { Profile } from "@/lib/database.types";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, supabase, service } = auth;
 
   // Only developers can register agents
   const profileRes = await supabase.from("profiles").select("*").eq("id", user.id).single();
@@ -50,8 +47,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (price_per_task < 10) {
     return NextResponse.json({ error: "Minimum price is 10 credits." }, { status: 422 });
   }
-
-  const service = createServiceClient();
 
   const { data: agent, error } = await service
     .from("agents")

@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  const service = createServiceClient();
   const [{ data: all }, { data: unlocked }] = await Promise.all([
     service.from("achievements").select("*"),
     service.from("user_achievements").select("*").eq("profile_id", user.id),

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, supabase, service } = auth;
 
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
@@ -31,8 +31,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Maximum 8 steps per pipeline" }, { status: 422 });
   if (price_per_run < 10)
     return NextResponse.json({ error: "Minimum price is 10 credits" }, { status: 422 });
-
-  const service = createServiceClient();
 
   // Verify all agent IDs exist and are active
   const agentIds = steps.map((s) => s.agent_id);

@@ -2,19 +2,16 @@
  * Team Workspace API
  * GET    /api/workspaces         — list user's workspaces
  * POST   /api/workspaces         — create workspace
- * POST   /api/workspaces/invite  — invite member by email
  * DELETE /api/workspaces?id=X    — delete workspace (owner only)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const service = createServiceClient();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   // Workspaces the user owns
   const { data: owned } = await service
@@ -56,11 +53,10 @@ export async function GET(): Promise<NextResponse> {
 
 // ── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  const service = createServiceClient();
   const { name } = await req.json() as { name: string };
 
   if (!name?.trim() || name.length > 50) {
@@ -97,14 +93,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 // ── DELETE ─────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const service = createServiceClient();
   await service.from("workspaces").delete().eq("id", id).eq("owner_id", user.id);
   return NextResponse.json({ success: true });
 }

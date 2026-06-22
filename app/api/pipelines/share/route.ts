@@ -1,14 +1,14 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
+import { creditMatadoraWallet } from "@/lib/matadora-helpers";
 
-// POST /api/pipelines/share â€” toggle public sharing on a pipeline
+// POST /api/pipelines/share — toggle public sharing on a pipeline
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { pipeline_id, is_public } = await req.json() as { pipeline_id: string; is_public: boolean };
-  const service = createServiceClient();
 
   // Verify ownership
   const { data: pl } = await service
@@ -19,29 +19,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!pl || pl.owner_id !== user.id) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
+
   // Generate share_token if not exists
   if (!pl.share_token) {
     const token = Array.from(crypto.getRandomValues(new Uint8Array(12)))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
     await service.from("pipelines").update({ share_token: token, is_public }).eq("id", pipeline_id);
-    const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
     return NextResponse.json({ is_public, shareUrl: `${BASE}/p/${token}` });
   }
 
   await service.from("pipelines").update({ is_public }).eq("id", pipeline_id);
-  const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
   return NextResponse.json({ is_public, shareUrl: `${BASE}/p/${pl.share_token}` });
 }
 
-// POST /api/pipelines/fork â€” fork a shared pipeline
+// POST /api/pipelines/fork — fork a shared pipeline
 export async function PUT(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { token } = await req.json() as { token: string };
-  const service = createServiceClient();
 
   const { data: original } = await service
     .from("pipelines")
@@ -74,17 +73,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   try {
     const { data: original2 } = await service.from("pipelines").select("owner_id").eq("id", original.id).single() as { data: { owner_id: string } | null };
     if (original2?.owner_id) {
-      await service.from("matadora_transactions").insert({
-        profile_id:  original2.owner_id,
-        amount:      10,
-        type:        "creator_royalty",
-        description: `Pipeline fork royalty`,
-        reference_id: fork.id,
-      });
-      await service.from("matadora_wallets").upsert(
-        { profile_id: original2.owner_id, balance: 10, total_earned: 10 },
-        { onConflict: "profile_id", ignoreDuplicates: false }
-      );
+      await creditMatadoraWallet(service, original2.owner_id, 10, "creator_royalty", "Pipeline fork royalty", fork.id);
     }
   } catch { /* non-critical */ }
 

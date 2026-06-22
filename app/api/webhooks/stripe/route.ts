@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase-server";
+import { getStripe } from "@/lib/stripe-helpers";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 // 1 USD = 100 credits (each credit = $0.01)
 const USD_TO_CREDITS = 100;
-
-// Lazy-initialise Stripe so the module can be imported during build
-// without STRIPE_SECRET_KEY being present.
-function getStripe(): Stripe {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2026-02-25.clover",
-    typescript: true,
-  });
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 async function topUpCredits(

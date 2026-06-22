@@ -5,23 +5,20 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
-import { addDays, addMonths } from "@/lib/schedule-utils";
+import { computeNextRun } from "@/lib/schedule-utils";
+import { verifyCronSecret } from "@/lib/api-utils";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const secret = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authErr = verifyCronSecret(req);
+  if (authErr) return authErr;
   return runSchedules();
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const secret = req.headers.get("x-admin-secret") ?? req.headers.get("authorization");
-  if (secret !== process.env.ADMIN_SECRET && secret !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authErr = verifyCronSecret(req);
+  if (authErr) return authErr;
   return runSchedules();
 }
 
@@ -134,29 +131,4 @@ async function runSchedules(): Promise<NextResponse> {
   return NextResponse.json({ ran, skipped, total: due.length });
 }
 
-function computeNextRun(
-  frequency: "hourly" | "daily" | "weekly" | "monthly",
-  runAtHour: number,
-  runAtDow: number
-): Date {
-  const now  = new Date();
-  let next   = new Date(now);
-  next.setMinutes(0, 0, 0);
-  next.setHours(runAtHour);
 
-  if (frequency === "hourly") {
-    next = new Date(now);
-    next.setMinutes(0, 0, 0);
-    next.setHours(now.getHours() + 1);
-  } else if (frequency === "daily") {
-    next = addDays(next, 1);
-  } else if (frequency === "weekly") {
-    const currentDow = now.getDay();
-    const daysUntil  = (runAtDow - currentDow + 7) % 7 || 7;
-    next = addDays(next, daysUntil);
-  } else if (frequency === "monthly") {
-    next = addMonths(next, 1);
-    next.setDate(1);
-  }
-  return next;
-}

@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { pipeline_slug, goal } = await req.json() as { pipeline_slug: string; goal: string };
   if (!pipeline_slug || !goal?.trim())
     return NextResponse.json({ error: "pipeline_slug and goal are required" }, { status: 422 });
-
-  const service = createServiceClient();
 
   // Fetch pipeline
   const { data: pipeline } = await service

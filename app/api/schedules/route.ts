@@ -6,16 +6,15 @@
  * DELETE /api/schedules?id=X   — delete schedule
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
-import { addDays, addHours } from "@/lib/schedule-utils";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
+import { computeNextRun } from "@/lib/schedule-utils";
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
-  const service = createServiceClient();
   const { data } = await service
     .from("task_schedules")
     .select(`
@@ -31,11 +30,9 @@ export async function GET(): Promise<NextResponse> {
 
 // ── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const service = createServiceClient();
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   // Max 20 schedules per user
   const { count } = await service
@@ -94,9 +91,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
@@ -110,7 +107,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     run_at_dow?: number;
   };
 
-  const service = createServiceClient();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof body.is_active === "boolean") updates.is_active  = body.is_active;
   if (body.name)        updates.name        = body.name;
@@ -142,46 +138,13 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
 // ── DELETE ─────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  const service = createServiceClient();
   await service.from("task_schedules").delete().eq("id", id).eq("profile_id", user.id);
   return NextResponse.json({ success: true });
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function computeNextRun(
-  frequency: "hourly" | "daily" | "weekly" | "monthly",
-  runAtHour: number,
-  runAtDow: number
-): Date {
-  const now = new Date();
-  let next = new Date(now);
-  next.setMinutes(0, 0, 0);
-  next.setHours(runAtHour);
-
-  if (frequency === "hourly") {
-    // Next full hour
-    next = new Date(now);
-    next.setMinutes(0, 0, 0);
-    next.setHours(now.getHours() + 1);
-  } else if (frequency === "daily") {
-    if (next <= now) next = addDays(next, 1);
-  } else if (frequency === "weekly") {
-    const currentDow = now.getDay();
-    const daysUntil  = (runAtDow - currentDow + 7) % 7 || 7;
-    next = addDays(next, daysUntil);
-  } else if (frequency === "monthly") {
-    next.setDate(1);
-    if (next <= now) {
-      next.setMonth(next.getMonth() + 1);
-    }
-  }
-  return next;
-}
-

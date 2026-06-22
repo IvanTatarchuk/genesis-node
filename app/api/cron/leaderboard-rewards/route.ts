@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase-server";
 import { sendWinnerEmail } from "@/lib/email";
+import { verifyCronSecret } from "@/lib/api-utils";
 
 // Vercel Cron: runs every Monday at 00:05 UTC
 // Add to vercel.json: { "crons": [{ "path": "/api/cron/leaderboard-rewards", "schedule": "5 0 * * 1" }] }
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  // Verify cron secret (Vercel sets this automatically in production)
-  const authHeader = req.headers.get("authorization");
-  if (
-    process.env.NODE_ENV === "production" &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authErr = verifyCronSecret(req);
+  if (authErr) return authErr;
 
   const service = createServiceClient();
 

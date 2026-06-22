@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceClient } from "@/lib/supabase-server";
+import { requireAuth, isAuthError } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+  const { user, service } = auth;
 
   const { code } = await req.json();
   if (!code?.trim()) {
     return NextResponse.json({ error: "Code is required" }, { status: 422 });
   }
-
-  const service = createServiceClient();
 
   const { data, error } = await service.rpc("apply_referral", {
     p_new_user_id:   user.id,

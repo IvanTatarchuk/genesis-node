@@ -73,16 +73,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (new Date(invite.expires_at) < new Date()) return NextResponse.json({ error: "Invite expired" }, { status: 410 });
 
   // Add member
-  await service.from("workspace_members").upsert({
+  const { error: memberErr } = await service.from("workspace_members").upsert({
     workspace_id: invite.workspace_id,
     profile_id:   user.id,
     role:         "member",
   }, { onConflict: "workspace_id,profile_id" });
+  if (memberErr) {
+    console.error("[GET /api/workspaces/invite] member upsert failed:", memberErr);
+    return NextResponse.json({ error: "Failed to join workspace" }, { status: 500 });
+  }
 
   // Mark invite used
-  await service.from("workspace_invites")
+  const { error: inviteErr } = await service.from("workspace_invites")
     .update({ accepted_at: new Date().toISOString() })
     .eq("id", invite.id);
+  if (inviteErr) {
+    console.error("[GET /api/workspaces/invite] invite update failed:", inviteErr);
+  }
 
   return NextResponse.json({ success: true, workspace_id: invite.workspace_id });
 }

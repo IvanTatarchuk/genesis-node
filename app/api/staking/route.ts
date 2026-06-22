@@ -50,12 +50,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (error || !stake) return NextResponse.json({ error: "Failed to create stake" }, { status: 500 });
 
-  await service.from("matadora_wallets").update({
+  const { error: walletErr } = await service.from("matadora_wallets").update({
     balance:     wallet.balance - amount,
     total_spent: (wallet.total_spent ?? 0) + amount,
     updated_at:  new Date().toISOString(),
   }).eq("profile_id", user.id);
-  await service.from("matadora_transactions").insert({ profile_id: user.id, amount: -amount, type: "spent", description: `Staked ${amount} MATADORA for ${duration_days} days`, reference_id: (stake as { id: string }).id });
+  if (walletErr) {
+    console.error("[POST /api/staking] wallet debit failed:", walletErr);
+    return NextResponse.json({ error: "Failed to debit wallet" }, { status: 500 });
+  }
+
+  const { error: txnErr } = await service.from("matadora_transactions").insert({ profile_id: user.id, amount: -amount, type: "spent", description: `Staked ${amount} MATADORA for ${duration_days} days`, reference_id: (stake as { id: string }).id });
+  if (txnErr) {
+    console.error("[POST /api/staking] transaction log failed:", txnErr);
+  }
 
   return NextResponse.json({ stake_id: (stake as { id: string }).id, ends_at: endsAt, apy: APY[duration_days] }, { status: 201 });
 }
@@ -74,9 +82,22 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
 
   const total = stake.amount + stake.reward_earned;
   const { data: wallet } = await service.from("matadora_wallets").select("balance, total_earned").eq("profile_id", user.id).single() as { data: { balance: number; total_earned: number } | null };
-  await service.from("matadora_wallets").update({ balance: (wallet?.balance ?? 0) + total, total_earned: (wallet?.total_earned ?? 0) + stake.reward_earned, updated_at: new Date().toISOString() }).eq("profile_id", user.id);
-  await service.from("matadora_stakes").update({ status: "completed" }).eq("id", stake_id);
-  await service.from("matadora_transactions").insert({ profile_id: user.id, amount: total, type: "earned", description: `Stake matured: ${stake.amount} + ${stake.reward_earned} reward`, reference_id: stake_id });
+
+  const { error: walletErr } = await service.from("matadora_wallets").update({ balance: (wallet?.balance ?? 0) + total, total_earned: (wallet?.total_earned ?? 0) + stake.reward_earned, updated_at: new Date().toISOString() }).eq("profile_id", user.id);
+  if (walletErr) {
+    console.error("[PUT /api/staking] wallet credit failed:", walletErr);
+    return NextResponse.json({ error: "Failed to credit wallet" }, { status: 500 });
+  }
+
+  const { error: stakeUpdateErr } = await service.from("matadora_stakes").update({ status: "completed" }).eq("id", stake_id);
+  if (stakeUpdateErr) {
+    console.error("[PUT /api/staking] stake status update failed:", stakeUpdateErr);
+  }
+
+  const { error: txnErr } = await service.from("matadora_transactions").insert({ profile_id: user.id, amount: total, type: "earned", description: `Stake matured: ${stake.amount} + ${stake.reward_earned} reward`, reference_id: stake_id });
+  if (txnErr) {
+    console.error("[PUT /api/staking] transaction log failed:", txnErr);
+  }
 
   return NextResponse.json({ claimed: true, principal: stake.amount, reward: stake.reward_earned, total });
 }

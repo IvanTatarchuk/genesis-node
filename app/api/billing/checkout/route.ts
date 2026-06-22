@@ -37,6 +37,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid credit pack" }, { status: 422 });
   }
 
+  try {
   // Get or create Stripe customer
   const service = createServiceClient();
   const profileRes = await service.from("profiles").select("*").eq("id", user.id).single();
@@ -83,4 +84,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   return NextResponse.json({ url: session.url });
+
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Checkout failed";
+    console.error("[POST /api/billing/checkout]", err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

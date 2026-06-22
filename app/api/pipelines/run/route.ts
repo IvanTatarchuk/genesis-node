@@ -66,7 +66,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Create first task (step 0)
   const firstStep = steps.find((s) => s.order === 0) ?? steps[0];
-  const { data: firstTask } = await service
+  const { data: firstTask, error: taskErr2 } = await service
     .from("tasks")
     .insert({
       client_id:             user.id,
@@ -79,10 +79,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select("id")
     .single();
 
+  if (taskErr2 || !firstTask) {
+    console.error("[POST /api/pipelines/run] first task creation failed:", taskErr2);
+    await service.from("pipeline_executions").update({ status: "failed" }).eq("id", execution.id);
+    return NextResponse.json({ error: "Pipeline started but failed to create first task" }, { status: 500 });
+  }
+
   return NextResponse.json({
     execution_id: execution.id,
-    first_task_id: firstTask?.id,
+    first_task_id: firstTask.id,
     total_steps: steps.length,
-    stream_url: firstTask ? `/tasks/${firstTask.id}` : null,
+    stream_url: `/tasks/${firstTask.id}`,
   }, { status: 201 });
 }

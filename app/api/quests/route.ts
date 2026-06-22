@@ -67,12 +67,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (uq.claimed_at) return NextResponse.json({ error: "Already claimed" }, { status: 400 });
 
   // Mark as claimed
-  await service.from("user_quests").update({ claimed_at: new Date().toISOString() }).eq("profile_id", user.id).eq("quest_id", quest_id).eq("period_key", periodKey);
+  const { error: claimErr } = await service.from("user_quests").update({ claimed_at: new Date().toISOString() }).eq("profile_id", user.id).eq("quest_id", quest_id).eq("period_key", periodKey);
+  if (claimErr) {
+    console.error("[POST /api/quests] claim update failed:", claimErr);
+    return NextResponse.json({ error: "Failed to claim quest" }, { status: 500 });
+  }
 
   // Award MATADORA
   const { data: wallet } = await service.from("matadora_wallets").select("balance,total_earned").eq("profile_id", user.id).single() as { data: { balance: number; total_earned: number } | null };
-  await service.from("matadora_wallets").upsert({ profile_id: user.id, balance: (wallet?.balance ?? 0) + quest.reward_matadora, total_earned: (wallet?.total_earned ?? 0) + quest.reward_matadora, updated_at: new Date().toISOString() }, { onConflict: "profile_id" });
-  await service.from("matadora_transactions").insert({ profile_id: user.id, amount: quest.reward_matadora, type: "bonus", description: `Quest reward: ${quest_id}`, reference_id: `quest:${quest_id}:${periodKey}` });
+  const { error: walletErr } = await service.from("matadora_wallets").upsert({ profile_id: user.id, balance: (wallet?.balance ?? 0) + quest.reward_matadora, total_earned: (wallet?.total_earned ?? 0) + quest.reward_matadora, updated_at: new Date().toISOString() }, { onConflict: "profile_id" });
+  if (walletErr) {
+    console.error("[POST /api/quests] wallet update failed:", walletErr);
+    return NextResponse.json({ error: "Failed to award MATADORA" }, { status: 500 });
+  }
+
+  const { error: txnErr } = await service.from("matadora_transactions").insert({ profile_id: user.id, amount: quest.reward_matadora, type: "bonus", description: `Quest reward: ${quest_id}`, reference_id: `quest:${quest_id}:${periodKey}` });
+  if (txnErr) {
+    console.error("[POST /api/quests] transaction log failed:", txnErr);
+  }
 
   return NextResponse.json({ claimed: true, reward: quest.reward_matadora });
 }

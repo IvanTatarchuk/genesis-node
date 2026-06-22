@@ -86,11 +86,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (error) return NextResponse.json({ error: "Failed to create workspace" }, { status: 500 });
 
   // Add owner as member
-  await service.from("workspace_members").insert({
+  const { error: memberErr } = await service.from("workspace_members").insert({
     workspace_id: ws.id,
     profile_id:   user.id,
     role:         "owner",
   });
+  if (memberErr) {
+    console.error("[POST /api/workspaces] owner member insert failed:", memberErr);
+  }
 
   return NextResponse.json({ workspace: ws }, { status: 201 });
 }
@@ -105,6 +108,10 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const service = createServiceClient();
-  await service.from("workspaces").delete().eq("id", id).eq("owner_id", user.id);
+  const { error } = await service.from("workspaces").delete().eq("id", id).eq("owner_id", user.id);
+  if (error) {
+    console.error("[DELETE /api/workspaces] delete failed:", error);
+    return NextResponse.json({ error: "Failed to delete workspace" }, { status: 500 });
+  }
   return NextResponse.json({ success: true });
 }

@@ -89,7 +89,7 @@ async function runSchedules(): Promise<NextResponse> {
             body: `Not enough credits to run scheduled task "${sched.goal.slice(0, 60)}...". Top up to resume.`,
             link: "/pricing",
           });
-        } catch { /* non-critical */ }
+        } catch (notifErr) { console.error(`[schedules] notification insert failed for ${sched.id}:`, notifErr); }
         skipped++;
         continue;
       }

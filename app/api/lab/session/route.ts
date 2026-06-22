@@ -84,10 +84,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function GET(): Promise<NextResponse> {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const service = createServiceClient();
   const { data: sessions } = await service
     .from("lab_sessions")
     .select("id, title, topic, status, participants, output, created_at")
+    .eq("started_by", user.id)
     .order("created_at", { ascending: false })
     .limit(10);
   return NextResponse.json({ sessions: sessions ?? [] });

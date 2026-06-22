@@ -7,12 +7,9 @@ import { sendWinnerEmail } from "@/lib/email";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  // Verify cron secret (Vercel sets this automatically in production)
+  // Verify cron secret
   const authHeader = req.headers.get("authorization");
-  if (
-    process.env.NODE_ENV === "production" &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

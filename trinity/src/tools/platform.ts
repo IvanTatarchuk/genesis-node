@@ -577,15 +577,17 @@ export async function executeVasyliyTool(name: string, args: Record<string, unkn
     case "execute_sql": {
       // Safe SELECT-only execution via Supabase RPC
       const q = args.query as string;
-      if (!q.trim().toLowerCase().startsWith("select")) {
-        return "ERROR: Only SELECT queries are allowed for safety";
+      const normalized = q.trim().toLowerCase();
+      // Block multiple statements and dangerous keywords
+      const forbidden = /;|--|\/\*|\bdrop\b|\bdelete\b|\binsert\b|\bupdate\b|\balter\b|\bcreate\b|\btruncate\b|\bgrant\b|\brevoke\b|\bcopy\b|\bexec\b/i;
+      if (!normalized.startsWith("select") || forbidden.test(normalized)) {
+        return "ERROR: Only single SELECT queries without mutations are allowed";
       }
       try {
         const { data, error } = await (client as any).rpc("execute_safe_query", { query: q });
         if (error) return `SQL error: ${error.message}`;
         return JSON.stringify(data, null, 2);
       } catch {
-        // Fallback: try a direct query based on table inference
         return `SQL execution requires rpc:execute_safe_query. Query was: ${q}`;
       }
     }

@@ -22,10 +22,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Verify internal call via service secret
   const authHeader = req.headers.get("Authorization");
   if (authHeader !== `Bearer ${process.env.SERVICE_ROLE_KEY}` && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Also allow calls with supabase anon key for testing in dev
-    if (process.env.NODE_ENV !== "development") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { profile_id, action, reference_id } = await req.json() as {

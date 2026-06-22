@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "db:push": "supabase db push",
     "db:migrate-donation": "node scripts/run-donation-migration.mjs",
     "deploy": "npx vercel --prod --yes",
@@ -44,6 +46,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
     "pg": "^8.20.0",
-    "supabase": "^2.77.0"
+    "supabase": "^2.77.0",
+    "vitest": "^4.1.9"
   }
 }

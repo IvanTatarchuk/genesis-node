@@ -65,20 +65,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .single() as { data: { balance: number; total_earned: number } | null };
 
   // Update wallet
-  await service.from("matadora_wallets").update({
+  const { error: walletErr } = await service.from("matadora_wallets").update({
     balance:     (wallet?.balance ?? 0) + amount,
     total_earned: (wallet?.total_earned ?? 0) + amount,
     updated_at:  new Date().toISOString(),
   }).eq("profile_id", profile_id);
+  if (walletErr) {
+    console.error("[POST /api/matadora/earn] wallet update failed:", walletErr);
+    return NextResponse.json({ error: "Failed to update wallet" }, { status: 500 });
+  }
 
   // Log transaction
-  await service.from("matadora_transactions").insert({
+  const { error: txnErr } = await service.from("matadora_transactions").insert({
     profile_id,
     amount,
     type:         "earned",
     description:  `Earned for: ${action.replace(/_/g, " ")}`,
     reference_id: reference_id ?? null,
   });
+  if (txnErr) {
+    console.error("[POST /api/matadora/earn] transaction log failed:", txnErr);
+  }
 
   return NextResponse.json({ earned: amount, action });
 }

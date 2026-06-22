@@ -73,16 +73,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!order) return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
 
   // Deduct from wallet
-  await service.from("matadora_wallets")
+  const { error: walletErr } = await service.from("matadora_wallets")
     .update({
       balance:         wallet.balance - amount,
       total_exchanged: (wallet as unknown as { total_exchanged?: number }).total_exchanged ?? 0 + amount,
       updated_at:      new Date().toISOString(),
     })
     .eq("profile_id", user.id);
+  if (walletErr) {
+    console.error("[POST /api/matadora/exchange] wallet debit failed:", walletErr);
+    return NextResponse.json({ error: "Failed to debit wallet" }, { status: 500 });
+  }
 
   // Log transaction
-  await service.from("matadora_transactions").insert({
+  const { error: txnErr } = await service.from("matadora_transactions").insert({
     profile_id:   user.id,
     amount:       -amount,
     type:         "exchanged",
@@ -90,6 +94,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     reference_id: order.id,
     rate_usd:     rateUsd,
   });
+  if (txnErr) {
+    console.error("[POST /api/matadora/exchange] transaction log failed:", txnErr);
+  }
 
   return NextResponse.json({
     order_id:        order.id,

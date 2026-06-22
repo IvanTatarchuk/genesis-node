@@ -46,20 +46,32 @@ export async function POST(req: NextRequest) {
 
   // Deduct credits and activate boost
   const sba = sb as ReturnType<typeof createServiceClient>;
-  await sba.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
-  await sba.from("agents").update({
+  const { error: debitErr } = await sba.from("profiles").update({ balance: profile.balance - boost.credits }).eq("id", user.id);
+  if (debitErr) {
+    console.error("[POST /api/boost] balance debit failed:", debitErr);
+    return NextResponse.json({ error: "Failed to debit credits" }, { status: 500 });
+  }
+
+  const { error: boostErr } = await sba.from("agents").update({
     is_boosted: true,
     boost_ends_at: boostUntil.toISOString(),
     is_featured: true,
   }).eq("id", agent.id);
+  if (boostErr) {
+    console.error("[POST /api/boost] agent boost update failed:", boostErr);
+    return NextResponse.json({ error: "Failed to activate boost" }, { status: 500 });
+  }
 
   // Credit transaction log
-  await sba.from("credit_transactions").insert({
+  const { error: txnErr } = await sba.from("credit_transactions").insert({
     user_id: user.id,
     amount: -boost.credits,
     type: "boost",
     description: `Boost агента @${agentSlug} на ${boost.label}`,
   });
+  if (txnErr) {
+    console.error("[POST /api/boost] transaction log failed:", txnErr);
+  }
 
   return NextResponse.json({ ok: true, boostUntil });
 }

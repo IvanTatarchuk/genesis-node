@@ -131,6 +131,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   }
 
   // Refund credits only for pending tasks (running tasks may have consumed resources)
+  let refunded = false;
   if (task.status === "pending") {
     const { data: agent } = await service
       .from("agents")
@@ -146,17 +147,25 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
         .single() as { data: { balance: number } | null };
 
       if (profile) {
-        await service.from("profiles").update({ balance: profile.balance + agent.price_per_task }).eq("id", user.id);
-        await service.from("credit_transactions").insert({
+        const { error: refundErr } = await service.from("profiles").update({ balance: profile.balance + agent.price_per_task }).eq("id", user.id);
+        if (refundErr) {
+          console.error("[DELETE /api/tasks] refund balance update failed:", refundErr);
+          return NextResponse.json({ error: "Task cancelled but refund failed. Contact support." }, { status: 500 });
+        }
+        const { error: txnErr } = await service.from("credit_transactions").insert({
           profile_id:   user.id,
           amount:       agent.price_per_task,
           type:         "refund",
           reference_id: taskId,
           description:  `Refund for cancelled task`,
         });
+        if (txnErr) {
+          console.error("[DELETE /api/tasks] refund transaction log failed:", txnErr);
+        }
+        refunded = true;
       }
     }
   }
 
-  return NextResponse.json({ success: true, refunded: task.status === "pending" });
+  return NextResponse.json({ success: true, refunded });
 }

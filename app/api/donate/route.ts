@@ -10,6 +10,8 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+
   const body = await req.json();
   const { recipientType, recipientId, amount: rawAmount } = body as {
     recipientType: "developer" | "platform";
@@ -80,15 +82,27 @@ export async function POST(req: NextRequest) {
         description: `Donation from ${senderName}`,
       },
     ]);
-    if (txnOut.error) throw txnOut.error;
+    if (txnOut.error) {
+      console.error("[POST /api/donate] transaction insert failed:", txnOut.error);
+      return NextResponse.json({ error: "Failed to record donation transaction" }, { status: 500 });
+    }
 
-    await service.from("profiles").update({ balance: senderProfile.balance - amount }).eq("id", user.id);
+    const { error: debitErr } = await service.from("profiles").update({ balance: senderProfile.balance - amount }).eq("id", user.id);
+    if (debitErr) {
+      console.error("[POST /api/donate] sender balance debit failed:", debitErr);
+      return NextResponse.json({ error: "Failed to debit sender balance" }, { status: 500 });
+    }
+
     const { data: recProfile } = await service.from("profiles").select("balance, total_earned").eq("id", recipient.id).single() as { data: { balance: number; total_earned: number } | null };
     if (recProfile) {
-      await service.from("profiles").update({
+      const { error: creditErr } = await service.from("profiles").update({
         balance: recProfile.balance + amount,
         total_earned: recProfile.total_earned + amount,
       }).eq("id", recipient.id);
+      if (creditErr) {
+        console.error("[POST /api/donate] recipient credit failed:", creditErr);
+        return NextResponse.json({ error: "Donation sent but recipient credit failed. Contact support." }, { status: 500 });
+      }
     }
   } else {
     const txnOut = await service.from("credit_transactions").insert({
@@ -98,11 +112,26 @@ export async function POST(req: NextRequest) {
       reference_id: "platform",
       description: "Donation to Genesis Node",
     });
-    if (txnOut.error) throw txnOut.error;
+    if (txnOut.error) {
+      console.error("[POST /api/donate] platform donation insert failed:", txnOut.error);
+      return NextResponse.json({ error: "Failed to record donation" }, { status: 500 });
+    }
 
-    await service.from("profiles").update({ balance: senderProfile.balance - amount }).eq("id", user.id);
+    const { error: debitErr } = await service.from("profiles").update({ balance: senderProfile.balance - amount }).eq("id", user.id);
+    if (debitErr) {
+      console.error("[POST /api/donate] sender balance debit failed:", debitErr);
+      return NextResponse.json({ error: "Failed to debit sender balance" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true, amount });
+
+  } catch (err) {
+    console.error("[POST /api/donate] unexpected error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Donation failed" },
+      { status: 500 }
+    );
+  }
 }
 

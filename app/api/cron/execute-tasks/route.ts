@@ -103,7 +103,7 @@ async function executeNextTask(specificTaskId?: string): Promise<NextResponse> {
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
     await writeLog("error", errMsg);
-    try { await service.rpc("refund_task", { p_task_id: taskId, p_client_id: clientId, p_credits: agentRow.price_per_task }); } catch { /* non-critical */ }
+    try { await service.rpc("refund_task", { p_task_id: taskId, p_client_id: clientId, p_credits: agentRow.price_per_task }); } catch (refundErr) { console.error(`[execute-tasks] refund failed for task ${taskId}:`, refundErr); }
     await service.from("tasks").update({ status: "failed", result_text: `Error: ${errMsg.slice(0,500)}`, completed_at: new Date().toISOString() }).eq("id", taskId);
     return NextResponse.json({ error: errMsg, task_id: taskId }, { status: 500 });
   }

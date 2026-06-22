@@ -42,14 +42,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { data: referrer } = await service.from("profiles").select("id").eq("referral_code", ref_code).single() as { data: { id: string } | null };
   if (!referrer || referrer.id === new_user_id) return NextResponse.json({ ok: false });
 
-  await service.from("profiles").update({ referred_by: referrer.id }).eq("id", new_user_id);
+  const { error: profileErr } = await service.from("profiles").update({ referred_by: referrer.id }).eq("id", new_user_id);
+  if (profileErr) {
+    console.error("[POST /api/referral] profile update failed:", profileErr);
+    return NextResponse.json({ ok: false, error: "Failed to link referral" });
+  }
+
   const { error } = await service.from("referrals").insert({ referrer_id: referrer.id, referred_id: new_user_id });
-  if (error) return NextResponse.json({ ok: false });
+  if (error) return NextResponse.json({ ok: false, error: "Failed to create referral record" });
 
   const { data: wallet } = await service.from("matadora_wallets").select("balance,total_earned").eq("profile_id", referrer.id).single() as { data: { balance: number; total_earned: number } | null };
-  await service.from("matadora_wallets").upsert({ profile_id: referrer.id, balance: (wallet?.balance ?? 0) + 200, total_earned: (wallet?.total_earned ?? 0) + 200, updated_at: new Date().toISOString() }, { onConflict: "profile_id" });
-  await service.from("matadora_transactions").insert({ profile_id: referrer.id, amount: 200, type: "referral", description: "Referral signup bonus", reference_id: new_user_id });
-  await service.from("referrals").update({ matadora_rewarded: true }).eq("referrer_id", referrer.id).eq("referred_id", new_user_id);
+  const { error: walletErr } = await service.from("matadora_wallets").upsert({ profile_id: referrer.id, balance: (wallet?.balance ?? 0) + 200, total_earned: (wallet?.total_earned ?? 0) + 200, updated_at: new Date().toISOString() }, { onConflict: "profile_id" });
+  if (walletErr) {
+    console.error("[POST /api/referral] wallet upsert failed:", walletErr);
+    return NextResponse.json({ ok: false, error: "Referral recorded but bonus credit failed" });
+  }
+
+  const { error: txnErr } = await service.from("matadora_transactions").insert({ profile_id: referrer.id, amount: 200, type: "referral", description: "Referral signup bonus", reference_id: new_user_id });
+  if (txnErr) {
+    console.error("[POST /api/referral] transaction log failed:", txnErr);
+  }
+
+  const { error: rewardErr } = await service.from("referrals").update({ matadora_rewarded: true }).eq("referrer_id", referrer.id).eq("referred_id", new_user_id);
+  if (rewardErr) {
+    console.error("[POST /api/referral] reward flag update failed:", rewardErr);
+  }
 
   return NextResponse.json({ ok: true });
 }

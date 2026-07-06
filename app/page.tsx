@@ -16,6 +16,8 @@ interface LiveIteration {
 interface DonePayload {
   result: { passed: boolean; durationMs: number; stdout: string; stderr: string };
   iterations: number;
+  reward: number;
+  shardBalance: number | null;
 }
 
 /**
@@ -186,11 +188,17 @@ export default function HomePage() {
           <pre style={{ background: "#f4f4f4", padding: "0.75rem", overflowX: "auto" }}>
             {done.result.stdout || done.result.stderr}
           </pre>
+          {done.reward > 0 && (
+            <p>
+              +{done.reward} shards earned{done.shardBalance !== null && ` (balance: ${done.shardBalance})`}
+            </p>
+          )}
         </div>
       )}
 
       <p style={{ marginTop: "2rem" }}>
-        <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link>
+        <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link> ·{" "}
+        <Link href="/shop">Shop</Link>
       </p>
     </main>
   );

@@ -140,3 +140,16 @@ export async function equipCosmetic(playerName: string, cosmeticId: string): Pro
     throw new Error(error.message);
   }
 }
+
+export async function fetchOwnedCosmeticIds(playerName: string): Promise<string[]> {
+  const { data, error } = await getServerSupabaseClient()
+    .from("player_cosmetics")
+    .select("cosmetic_id")
+    .eq("player_name", playerName);
+
+  if (error) {
+    throw new Error(`failed to fetch owned cosmetics: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => row.cosmetic_id as string);
+}

@@ -104,6 +104,15 @@ npm run build   # full Next.js production build
   iterate-on-failure loop is verified without a real API key or network call.
   `lib/runner.ts` (the actual sandboxed grading) is exercised for real inside
   those tests, not mocked — only the model call is faked.
+- **Shard economy**: passing a run earns "shards" via `lib/economy.ts`
+  (`calculateReward` — full reward for a one-shot pass, tapering per extra
+  iteration, floored at a minimum). Shards are credited through the atomic
+  `award_shards()` Postgres function and spent only on cosmetics
+  (`lib/cosmetics.ts`, bought/equipped via `purchase_cosmetic()`/
+  `equip_cosmetic()`, see `supabase/schema.sql`). There is no cashout path
+  anywhere in the schema — shards flow in from playing and out on cosmetics,
+  never back to real money. `/shop` is the buy/equip UI; the leaderboard
+  shows each player's equipped cosmetic next to their name.
 
 ## Roadmap (see `docs/` in the mcp-guard repo's `IDEAS_BACKLOG.md` for the
 original design discussion)
@@ -112,7 +121,7 @@ original design discussion)
       single-bug — genuinely harder/multi-file challenges are still open)
 - [x] Multi-turn / tool-use agent loop instead of single-shot
 - [x] Live streaming of the agent's reasoning while it runs
-- [ ] Cosmetics/skins economy (no cashout, no wagering — see design notes)
+- [x] Cosmetics/skins economy (no cashout, no wagering — see design notes)
 - [ ] Player-authored challenges with revenue share
 
 ## License

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import { challengeList, getChallenge } from "@/challenges";
+import { cosmetics } from "@/lib/cosmetics";
 import { fetchLeaderboard } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
     <main style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <h1>Leaderboard</h1>
       <p>
-        <Link href="/">Back</Link>
+        <Link href="/">Back</Link> · <Link href="/shop">Shop</Link>
       </p>
 
       <nav style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
@@ -65,15 +66,25 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={`${row.player_name}-${row.created_at}`}>
-                <td style={cellStyle}>{i + 1}</td>
-                <td style={cellStyle}>{row.player_name}</td>
-                <td style={cellStyle}>{row.model}</td>
-                <td style={cellStyle}>{row.duration_ms}ms</td>
-                <td style={cellStyle}>{row.iterations}</td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const badge = row.active_cosmetic_id ? cosmetics[row.active_cosmetic_id] : undefined;
+              return (
+                <tr key={`${row.player_name}-${row.created_at}`}>
+                  <td style={cellStyle}>{i + 1}</td>
+                  <td style={cellStyle}>
+                    {row.player_name}
+                    {badge && (
+                      <span style={{ marginLeft: "0.4rem" }} title={badge.name}>
+                        {badge.name}
+                      </span>
+                    )}
+                  </td>
+                  <td style={cellStyle}>{row.model}</td>
+                  <td style={cellStyle}>{row.duration_ms}ms</td>
+                  <td style={cellStyle}>{row.iterations}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

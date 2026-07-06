@@ -34,6 +34,8 @@ export interface ChallengeRow {
   prompt: string;
   files: Record<string, string>;
   solution_file: string;
+  /** Extra editable files for a multi-file challenge; empty array for single-file. */
+  additional_solution_files: string[];
   test_command: string[];
   status: "pending" | "approved" | "rejected";
 }
@@ -45,6 +47,7 @@ interface ChallengeSubmission {
   prompt: string;
   files: Record<string, string>;
   solutionFile: string;
+  additionalSolutionFiles?: string[];
   testCommand: string[];
 }
 
@@ -213,6 +216,7 @@ export async function insertChallengeSubmission(input: ChallengeSubmission): Pro
     prompt: input.prompt,
     files: input.files,
     solution_file: input.solutionFile,
+    additional_solution_files: input.additionalSolutionFiles ?? [],
     test_command: input.testCommand,
   });
 
@@ -226,7 +230,9 @@ export async function insertChallengeSubmission(input: ChallengeSubmission): Pro
 export async function fetchApprovedChallenges(): Promise<ChallengeRow[]> {
   const { data, error } = await getServerSupabaseClient()
     .from("challenges")
-    .select("slug, author_name, title, prompt, files, solution_file, test_command, status")
+    .select(
+      "slug, author_name, title, prompt, files, solution_file, additional_solution_files, test_command, status"
+    )
     .eq("status", "approved")
     .order("created_at", { ascending: true });
 
@@ -240,7 +246,9 @@ export async function fetchApprovedChallenges(): Promise<ChallengeRow[]> {
 export async function fetchChallengeBySlug(slug: string): Promise<ChallengeRow | null> {
   const { data, error } = await getServerSupabaseClient()
     .from("challenges")
-    .select("slug, author_name, title, prompt, files, solution_file, test_command, status")
+    .select(
+      "slug, author_name, title, prompt, files, solution_file, additional_solution_files, test_command, status"
+    )
     .eq("slug", slug)
     .maybeSingle();
 

@@ -165,7 +165,13 @@ npm run build   # full Next.js production build
   exists yet). A challenge's `testCommand` runs inside the sandbox for every
   player who attempts it, so it's deliberately not free-form shell:
   `validateSubmission` only accepts `["node", "--test", "<a file the author
-  submitted>"]`, the same shape the built-in challenges use. The author earns
+  submitted>"]`, the same shape the built-in challenges use. Multi-file
+  submissions are supported too (`additionalSolutionFiles`, stored in the
+  `additional_solution_files` column) — but `validateSubmission` refuses to put
+  the grading test file in the editable set, so an attempter can never rewrite
+  the grader to trivially pass (this also closes the single-file case where an
+  author sets `solutionFile` to the test file itself; `applySolution` enforces
+  the same invariant at run time as a second line of defense). The author earns
   a flat shard reward (`calculateAuthorReward`) each time someone else's run
   against their challenge passes — this is the "revenue share," paid in the
   same no-cashout virtual currency as everything else.
@@ -198,9 +204,11 @@ original design discussion)
       genuinely harder multi-bug one (`merge-intervals`) and a genuinely
       multi-*file* one (`csv-sum`) — the agent loop's `test_solution` tool
       takes a map of files, and `applySolution` guarantees only editable files
-      (never the test file) can be written. Open: a way for *player-authored*
-      challenges to be multi-file too (the submission form and
-      `validateSubmission` are still single-`solutionFile`).
+      (never the test file) can be written.
+- [x] Multi-file *player-authored* challenges: the submission form accepts
+      extra editable files, `validateSubmission` enforces that the grader test
+      file is never editable, and they round-trip through the new
+      `additional_solution_files` column.
 - [x] Multi-turn / tool-use agent loop instead of single-shot
 - [x] Live streaming of the agent's reasoning while it runs
 - [x] Cosmetics/skins economy (no cashout, no wagering — see design notes)

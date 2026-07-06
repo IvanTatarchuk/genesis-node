@@ -19,7 +19,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const { slug, authorName, title, prompt, files, solutionFile, testCommand } = body;
+  const { slug, authorName, title, prompt, files, solutionFile, additionalSolutionFiles, testCommand } =
+    body;
   if (!slug || !authorName || !title || !prompt || !files || !solutionFile || !testCommand) {
     return NextResponse.json(
       {
@@ -38,6 +39,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       prompt,
       files,
       solutionFile,
+      additionalSolutionFiles,
       testCommand,
     });
     return NextResponse.json({ slug: submittedSlug, status: "pending" });

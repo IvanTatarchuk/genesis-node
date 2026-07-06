@@ -65,4 +65,59 @@ describe("validateSubmission", () => {
     expect(validateSubmission(validSubmission({ prompt: "" }))).toMatch(/prompt/);
     expect(validateSubmission(validSubmission({ files: {} }))).toMatch(/files/);
   });
+
+  it("accepts a multi-file submission with additional editable files", () => {
+    const files = {
+      "a.js": "x",
+      "b.js": "y",
+      "a.test.js": "require('node:test');",
+    };
+    expect(
+      validateSubmission(
+        validSubmission({ files, solutionFile: "a.js", additionalSolutionFiles: ["b.js"] })
+      )
+    ).toBeNull();
+  });
+
+  it("rejects an additional solution file that wasn't submitted in files", () => {
+    expect(
+      validateSubmission(validSubmission({ additionalSolutionFiles: ["missing.js"] }))
+    ).toMatch(/additionalSolutionFiles/);
+  });
+
+  it("rejects a file that is both the primary and an additional solution file", () => {
+    const files = { "a.js": "x", "a.test.js": "y" };
+    expect(
+      validateSubmission(
+        validSubmission({ files, solutionFile: "a.js", additionalSolutionFiles: ["a.js"] })
+      )
+    ).toMatch(/must not repeat/);
+  });
+
+  it("rejects making the test file editable — even as the primary solution file", () => {
+    const files = { "a.test.js": "require('node:test');" };
+    expect(
+      validateSubmission(
+        validSubmission({
+          files,
+          solutionFile: "a.test.js",
+          testCommand: ["node", "--test", "a.test.js"],
+        })
+      )
+    ).toMatch(/rewrite the grader/);
+  });
+
+  it("rejects making the test file editable via additionalSolutionFiles", () => {
+    const files = { "a.js": "x", "a.test.js": "require('node:test');" };
+    expect(
+      validateSubmission(
+        validSubmission({
+          files,
+          solutionFile: "a.js",
+          additionalSolutionFiles: ["a.test.js"],
+          testCommand: ["node", "--test", "a.test.js"],
+        })
+      )
+    ).toMatch(/rewrite the grader/);
+  });
 });

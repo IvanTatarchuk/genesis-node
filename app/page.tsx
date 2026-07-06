@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
-import { sumRangeChallenge } from "@/challenges/sum-range";
+import { challengeList } from "@/challenges";
 
 interface RunResponse {
   result?: { passed: boolean; durationMs: number; stdout: string; stderr: string };
@@ -12,10 +12,16 @@ interface RunResponse {
 }
 
 export default function HomePage() {
+  const [challengeId, setChallengeId] = useState(challengeList[0]!.id);
   const [playerName, setPlayerName] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [response, setResponse] = useState<RunResponse | null>(null);
+
+  const challenge = useMemo(
+    () => challengeList.find((c) => c.id === challengeId) ?? challengeList[0]!,
+    [challengeId]
+  );
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -25,7 +31,7 @@ export default function HomePage() {
     const res = await fetch("/api/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeId: sumRangeChallenge.id, playerName, apiKey }),
+      body: JSON.stringify({ challengeId, playerName, apiKey }),
     });
     const body = (await res.json()) as RunResponse;
 
@@ -36,10 +42,25 @@ export default function HomePage() {
   return (
     <main style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <h1>Agent Arena</h1>
-      <p>
-        Challenge: <strong>{sumRangeChallenge.title}</strong>
-      </p>
-      <p style={{ whiteSpace: "pre-wrap", color: "#555" }}>{sumRangeChallenge.prompt}</p>
+
+      <label>
+        Challenge
+        <select
+          value={challengeId}
+          onChange={(e) => {
+            setChallengeId(e.target.value);
+            setResponse(null);
+          }}
+          style={{ display: "block", width: "100%", marginBottom: "0.75rem" }}
+        >
+          {challengeList.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p style={{ whiteSpace: "pre-wrap", color: "#555" }}>{challenge.prompt}</p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}>
         <label>
@@ -82,7 +103,7 @@ export default function HomePage() {
       )}
 
       <p style={{ marginTop: "2rem" }}>
-        <Link href="/leaderboard">View leaderboard</Link>
+        <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link>
       </p>
     </main>
   );

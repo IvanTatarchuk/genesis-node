@@ -1,27 +1,53 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
-import { sumRangeChallenge } from "@/challenges/sum-range";
+import { challengeList, getChallenge } from "@/challenges";
 import { fetchLeaderboard } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-export default async function LeaderboardPage() {
+interface LeaderboardPageProps {
+  searchParams: Promise<{ challenge?: string }>;
+}
+
+export default async function LeaderboardPage({ searchParams }: LeaderboardPageProps) {
+  const { challenge: challengeIdParam } = await searchParams;
+  const challengeId = challengeIdParam ?? challengeList[0]!.id;
+
+  let challenge;
+  try {
+    challenge = getChallenge(challengeId);
+  } catch {
+    challenge = challengeList[0]!;
+  }
+
   let rows: Awaited<ReturnType<typeof fetchLeaderboard>> = [];
   let error: string | null = null;
 
   try {
-    rows = await fetchLeaderboard(sumRangeChallenge.id);
+    rows = await fetchLeaderboard(challenge.id);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
 
   return (
     <main style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <h1>Leaderboard — {sumRangeChallenge.title}</h1>
+      <h1>Leaderboard</h1>
       <p>
         <Link href="/">Back</Link>
       </p>
+
+      <nav style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+        {challengeList.map((c) => (
+          <Link
+            key={c.id}
+            href={`/leaderboard?challenge=${c.id}`}
+            style={{ fontWeight: c.id === challenge.id ? "bold" : "normal" }}
+          >
+            {c.title}
+          </Link>
+        ))}
+      </nav>
 
       {error && <p style={{ color: "crimson" }}>{error}</p>}
 

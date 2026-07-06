@@ -109,6 +109,16 @@ npx tsc --noEmit
 npm run build   # full Next.js production build
 ```
 
+The sandbox-dependent suites (`sandbox`, `runner`, `challenges`, `agentLoop`)
+need a host that can actually create `unshare` namespaces. Where it can't —
+notably a stock GitHub Actions runner, where `unshare` is present but
+`Operation not permitted` — those suites **skip** rather than fail
+(`tests/sandboxSupport.ts` probes the capability once and gates them via
+`describe.skipIf`); the pure-logic suites (economy, loadouts, challenge
+validation, submission validation) always run. Run on a host with the
+privileges (local dev, this repo's own container) to exercise the real
+sandboxed grading end to end.
+
 ## Architecture notes
 
 - `lib/challenge.ts` / `challenges/*.ts` — a challenge is starter files + a

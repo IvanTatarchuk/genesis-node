@@ -7,6 +7,9 @@ import { mergeIntervalsChallenge } from "../challenges/merge-intervals";
 import { reverseWordsChallenge } from "../challenges/reverse-words";
 import type { Challenge } from "../lib/challenge";
 import { runChallenge } from "../lib/runner";
+import { sandboxUsable } from "./sandboxSupport";
+
+const SANDBOX = sandboxUsable();
 
 /**
  * Every challenge's *unmodified* starter file must fail its own tests (or it
@@ -89,7 +92,7 @@ const cases: Array<{ challenge: Challenge; correctFix: string }> = [
   },
 ];
 
-describe.each(cases)("challenge: $challenge.id", ({ challenge, correctFix }) => {
+describe.skipIf(!SANDBOX).each(cases)("challenge: $challenge.id", ({ challenge, correctFix }) => {
   it("the unmodified buggy starter fails", async () => {
     const result = await runChallenge(challenge, challenge.files[challenge.solutionFile]!);
     expect(result.passed).toBe(false);
@@ -107,7 +110,7 @@ describe.each(cases)("challenge: $challenge.id", ({ challenge, correctFix }) => 
  * must still fail. If either partial fix ever starts passing, the challenge has
  * quietly degraded into a one-line bug and this guard should catch it.
  */
-describe("challenge: merge-intervals is genuinely two independent bugs", () => {
+describe.skipIf(!SANDBOX)("challenge: merge-intervals is genuinely two independent bugs", () => {
   const sortOnly = [
     "function mergeIntervals(intervals) {",
     "  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);",
@@ -161,7 +164,7 @@ describe("challenge: merge-intervals is genuinely two independent bugs", () => {
  * passes and every one-file fix still fails, so the challenge genuinely needs
  * both files edited.
  */
-describe("challenge: csv-sum spans two files that both need fixing", () => {
+describe.skipIf(!SANDBOX)("challenge: csv-sum spans two files that both need fixing", () => {
   const fixedParse = [
     "function parse(csv) {",
     "  return csv.split(',').map(Number);",

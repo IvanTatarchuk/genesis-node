@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { sumRangeChallenge } from "../challenges/sum-range";
 import { runChallenge } from "../lib/runner";
+import { sandboxUsable } from "./sandboxSupport";
 
-describe("runChallenge", () => {
+describe.skipIf(!sandboxUsable())("runChallenge", () => {
   it("fails the unmodified, buggy starter code", async () => {
     const result = await runChallenge(sumRangeChallenge, sumRangeChallenge.files["sum.js"]!);
 

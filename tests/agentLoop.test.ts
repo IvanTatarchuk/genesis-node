@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { csvSumChallenge } from "../challenges/csv-sum";
 import { sumRangeChallenge } from "../challenges/sum-range";
 import { runAgentLoop, type MessagesClient } from "../lib/agentLoop";
+import { sandboxUsable } from "./sandboxSupport";
 
 const BUGGY = sumRangeChallenge.files["sum.js"]!;
 const FIXED = [
@@ -66,7 +67,7 @@ function textResponse(text: string): Anthropic.Message {
   } as unknown as Anthropic.Message;
 }
 
-describe("runAgentLoop", () => {
+describe.skipIf(!sandboxUsable())("runAgentLoop", () => {
   it("iterates: fails once, then submits a fix that passes", async () => {
     const create = vi
       .fn()

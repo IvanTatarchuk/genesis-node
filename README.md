@@ -69,9 +69,9 @@ this repo doesn't have.
 
 ```bash
 npm install
-cp .env.local.example .env.local
+cp .env.example .env.local
 # create a Supabase project, run supabase/schema.sql against it, fill in
-# SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local
+# SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and ADMIN_SECRET in .env.local
 npm run dev
 ```
 

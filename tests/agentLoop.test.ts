@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 
+import { csvSumChallenge } from "../challenges/csv-sum";
 import { sumRangeChallenge } from "../challenges/sum-range";
 import { runAgentLoop, type MessagesClient } from "../lib/agentLoop";
 
@@ -31,6 +32,21 @@ function toolUseResponse(id: string, content: string, reasoning?: string): Anthr
     role: "assistant",
     model: "claude-sonnet-4-5",
     content: blocks,
+    stop_reason: "tool_use",
+    stop_sequence: null,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  } as Anthropic.Message;
+}
+
+function multiFileToolUseResponse(id: string, files: Record<string, string>): Anthropic.Message {
+  return {
+    id: "msg_test",
+    type: "message",
+    role: "assistant",
+    model: "claude-sonnet-4-5",
+    content: [
+      { type: "tool_use", id, name: "test_solution", input: { files } } as Anthropic.ToolUseBlock,
+    ],
     stop_reason: "tool_use",
     stop_sequence: null,
     usage: { input_tokens: 1, output_tokens: 1 },
@@ -126,4 +142,30 @@ describe("runAgentLoop", () => {
     expect(result.finalResult.passed).toBe(true);
     expect(create).toHaveBeenCalledTimes(1);
   }, 15_000);
+
+  it("grades a real multi-file submission: fixing one file fails, then fixing both passes", async () => {
+    const fixedParse = "function parse(csv) {\n  return csv.split(',').map(Number);\n}\nmodule.exports = { parse };\n";
+    const fixedSum =
+      "function sum(nums) {\n  let total = 0;\n  for (const n of nums) { total += n; }\n  return total;\n}\nmodule.exports = { sum };\n";
+
+    const create = vi
+      .fn()
+      // First attempt only fixes parse.js — sum.js is still buggy, so it fails.
+      .mockResolvedValueOnce(multiFileToolUseResponse("call_1", { "parse.js": fixedParse }))
+      // Second attempt fixes both files — passes.
+      .mockResolvedValueOnce(
+        multiFileToolUseResponse("call_2", { "parse.js": fixedParse, "sum.js": fixedSum })
+      );
+    const client: MessagesClient = { messages: { create } };
+
+    const result = await runAgentLoop(csvSumChallenge, { apiKey: "unused" }, client);
+
+    expect(result.iterations).toBe(2);
+    expect(result.transcript[0]!.passed).toBe(false);
+    expect(result.finalResult.passed).toBe(true);
+    // The transcript records the multi-file submission with path headers.
+    expect(result.transcript[1]!.submittedContent).toContain("--- parse.js ---");
+    expect(result.transcript[1]!.submittedContent).toContain("--- sum.js ---");
+    expect(create).toHaveBeenCalledTimes(2);
+  }, 20_000);
 });

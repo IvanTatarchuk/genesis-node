@@ -10,23 +10,28 @@ This is the "crawl" phase of the plan: prove the core loop works before
 investing in live streaming, cosmetics/monetization, or a real challenge
 catalog. What exists right now:
 
-- Five real challenges (`challenges/*.ts`) of increasing difficulty —
+- Six real challenges (`challenges/*.ts`) of increasing difficulty —
   `sum-range` (off-by-one loop bound), `reverse-words` (wrong granularity:
   reverses characters instead of word order), `is-palindrome` (missing
   non-alphanumeric filtering, so it fails on real-world input with
   punctuation/spaces), `binary-search` (off-by-one lower bound that makes the
   first element unfindable — chosen carefully: an earlier off-by-one variant
   turned out to never actually produce a wrong answer for any test case, so
-  it was rejected), and `merge-intervals` — the first deliberately *harder*
-  one: two independent bugs (it assumes sorted input AND uses a strict
-  overlap check that misses intervals touching at an endpoint), so patching
-  either alone still fails. Each graded by Node's built-in test runner (zero
-  dependencies needed at grading time, since the sandbox blocks network
-  access), and each has an automated self-check
-  (`tests/challenges.test.ts`) proving the unmodified bug actually fails and
-  a known-correct fix actually passes — not just asserted by eye. For
-  `merge-intervals` the self-check goes further: it proves each *partial* fix
-  still fails, so the two-bug design can't quietly degrade into a one-liner.
+  it was rejected), `merge-intervals` — the first deliberately *harder* one:
+  two independent bugs (it assumes sorted input AND uses a strict overlap
+  check that misses intervals touching at an endpoint), so patching either
+  alone still fails — and `csv-sum`, the first genuinely multi-*file*
+  challenge: a bug in `parse.js` (returns strings instead of numbers) and one
+  in `sum.js` (accumulator starts `undefined`, yielding `NaN`), each pinned by
+  a test that touches only that file, so the agent has to edit both. Each
+  graded by Node's built-in test runner (zero dependencies needed at grading
+  time, since the sandbox blocks network access), and each has an automated
+  self-check (`tests/challenges.test.ts`) proving the unmodified bug actually
+  fails and a known-correct fix actually passes — not just asserted by eye. For
+  the multi-bug challenges the self-check goes further: it proves each *partial*
+  fix still fails (so the design can't quietly degrade into a one-liner), and
+  for `csv-sum` that a submission editing the test file is ignored (so the
+  grader can never be rewritten).
 - A sandboxed runner (`lib/sandbox.ts`, `lib/runner.ts`) — same isolation
   strategy validated in [mcp-guard](https://github.com/IvanTatarchuk/MyBotAI_Updates):
   pure `unshare` (no Docker/bubblewrap), network-isolated, filesystem
@@ -107,8 +112,15 @@ npm run build   # full Next.js production build
 ## Architecture notes
 
 - `lib/challenge.ts` / `challenges/*.ts` — a challenge is starter files + a
-  prompt + a grading command. Deliberately single-file-patch for now, not
-  multi-file diffs or multi-turn tool use.
+  prompt + a grading command. Most are single-file (`solutionFile`), but a
+  challenge can declare extra editable files via `additionalSolutionFiles` for
+  a bug that spans modules (see `csv-sum`). The whole pipeline treats the
+  editable set uniformly through `editableFiles`/`applySolution`, so single-file
+  is just the one-entry case; the agent loop shapes its `test_solution` tool to
+  match (a `{ content }` blob for one file, a `{ files: { path: content } }` map
+  for several). Crucially, `applySolution` only ever writes files in the
+  editable set — a submission can never overwrite the test file and rewrite the
+  grader, whatever the model puts in `files`.
 - `lib/sandbox.ts` — has one constraint worth knowing if you add challenges or
   seed data: the seed directory must **not** live under `/tmp` on the host,
   because the sandbox mounts a fresh, empty tmpfs at `/tmp` — anything seeded
@@ -183,9 +195,12 @@ npm run build   # full Next.js production build
 original design discussion)
 
 - [x] More challenges beyond the first one-line bug, now including a
-      genuinely harder multi-bug one (`merge-intervals`). Still single-file:
-      true multi-*file* challenges are open, and would need the agent loop's
-      `test_solution` tool to accept a map of files rather than one blob.
+      genuinely harder multi-bug one (`merge-intervals`) and a genuinely
+      multi-*file* one (`csv-sum`) — the agent loop's `test_solution` tool
+      takes a map of files, and `applySolution` guarantees only editable files
+      (never the test file) can be written. Open: a way for *player-authored*
+      challenges to be multi-file too (the submission form and
+      `validateSubmission` are still single-`solutionFile`).
 - [x] Multi-turn / tool-use agent loop instead of single-shot
 - [x] Live streaming of the agent's reasoning while it runs
 - [x] Cosmetics/skins economy (no cashout, no wagering — see design notes)

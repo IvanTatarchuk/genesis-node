@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { binarySearchChallenge } from "../challenges/binary-search";
+import { csvSumChallenge } from "../challenges/csv-sum";
 import { isPalindromeChallenge } from "../challenges/is-palindrome";
 import { mergeIntervalsChallenge } from "../challenges/merge-intervals";
 import { reverseWordsChallenge } from "../challenges/reverse-words";
@@ -149,6 +150,67 @@ describe("challenge: merge-intervals is genuinely two independent bugs", () => {
 
   it("fixing only the touching-interval comparison still fails", async () => {
     const result = await runChallenge(mergeIntervalsChallenge, comparisonOnly);
+    expect(result.passed).toBe(false);
+  }, 15_000);
+});
+
+/**
+ * csv-sum is the multi-file challenge: one bug in parse.js, one in sum.js.
+ * runChallenge is given a path -> content map here (the multi-file submission
+ * shape); an omitted file keeps its buggy starter. Prove the full two-file fix
+ * passes and every one-file fix still fails, so the challenge genuinely needs
+ * both files edited.
+ */
+describe("challenge: csv-sum spans two files that both need fixing", () => {
+  const fixedParse = [
+    "function parse(csv) {",
+    "  return csv.split(',').map(Number);",
+    "}",
+    "module.exports = { parse };",
+    "",
+  ].join("\n");
+
+  const fixedSum = [
+    "function sum(nums) {",
+    "  let total = 0;",
+    "  for (const n of nums) {",
+    "    total += n;",
+    "  }",
+    "  return total;",
+    "}",
+    "module.exports = { sum };",
+    "",
+  ].join("\n");
+
+  it("the unmodified starter (both files buggy) fails", async () => {
+    const result = await runChallenge(csvSumChallenge, {});
+    expect(result.passed).toBe(false);
+  }, 15_000);
+
+  it("fixing both files passes", async () => {
+    const result = await runChallenge(csvSumChallenge, {
+      "parse.js": fixedParse,
+      "sum.js": fixedSum,
+    });
+    expect(result.passed).toBe(true);
+  }, 15_000);
+
+  it("fixing only parse.js still fails", async () => {
+    const result = await runChallenge(csvSumChallenge, { "parse.js": fixedParse });
+    expect(result.passed).toBe(false);
+  }, 15_000);
+
+  it("fixing only sum.js still fails", async () => {
+    const result = await runChallenge(csvSumChallenge, { "sum.js": fixedSum });
+    expect(result.passed).toBe(false);
+  }, 15_000);
+
+  it("cannot overwrite the non-editable test file to force a pass", async () => {
+    // parse.js/sum.js are still buggy; an edit to the test file must be ignored,
+    // so this must NOT pass — the grader can never be rewritten by a submission.
+    const result = await runChallenge(csvSumChallenge, {
+      "csv-sum.test.js": "const { test } = require('node:test');\ntest('noop', () => {});\n",
+    });
     expect(result.passed).toBe(false);
   }, 15_000);
 });

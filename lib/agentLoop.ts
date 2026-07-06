@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import type { Challenge } from "./challenge";
+import { editableFiles, type Challenge } from "./challenge";
 import { runChallenge, type RunResult } from "./runner";
 
 export interface LoadoutConfig {
@@ -34,23 +34,93 @@ export interface MessagesClient {
   };
 }
 
-const TEST_SOLUTION_TOOL: Anthropic.Tool = {
-  name: "test_solution",
-  description:
-    "Submit your current attempt at the solution file and run the real grading tests against it in a " +
-    "sandbox. Returns whether the tests passed and their output. Call this again with a revised solution " +
-    "if the tests failed — you can see exactly why they failed and fix it.",
-  input_schema: {
-    type: "object",
-    properties: {
-      content: {
-        type: "string",
-        description: "The complete, corrected content of the solution file.",
+/**
+ * The `test_solution` tool, shaped to the challenge. A single-file challenge
+ * keeps the simple `{ content }` schema (unchanged from the original loop); a
+ * multi-file challenge instead takes `{ files: { <path>: <content> } }` keyed
+ * by the editable files, so the model can patch across modules in one attempt.
+ */
+function buildTestSolutionTool(editable: string[]): Anthropic.Tool {
+  if (editable.length === 1) {
+    return {
+      name: "test_solution",
+      description:
+        "Submit your current attempt at the solution file and run the real grading tests against it in a " +
+        "sandbox. Returns whether the tests passed and their output. Call this again with a revised solution " +
+        "if the tests failed — you can see exactly why they failed and fix it.",
+      input_schema: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "The complete, corrected content of the solution file.",
+          },
+        },
+        required: ["content"],
       },
+    };
+  }
+
+  const fileProperties: Record<string, { type: "string"; description: string }> = {};
+  for (const path of editable) {
+    fileProperties[path] = {
+      type: "string",
+      description: `Complete corrected content of ${path}.`,
+    };
+  }
+
+  return {
+    name: "test_solution",
+    description:
+      "Submit your current attempt and run the real grading tests in a sandbox. This challenge spans " +
+      "multiple editable files — put each file you have changed in `files`, keyed by its path. Every call is " +
+      "graded fresh from the original starter files, so include ALL the files you have changed (not just the " +
+      "most recent one). Returns whether the tests passed and their output; call again with revisions if they " +
+      "failed. You cannot edit the test file — only the files listed here.",
+    input_schema: {
+      type: "object",
+      properties: {
+        files: {
+          type: "object",
+          properties: fileProperties,
+          additionalProperties: false,
+          description: "Map of editable file path -> its complete corrected content.",
+        },
+      },
+      required: ["files"],
     },
-    required: ["content"],
-  },
-};
+  };
+}
+
+/**
+ * Turn the model's `test_solution` input into (a) the edits to grade and (b) a
+ * human-readable string of what was submitted, for the live transcript. For a
+ * single-file challenge the submitted string is just the file content (so the
+ * transcript is unchanged from the original loop); for multi-file it's the
+ * edited files concatenated with path headers. Only editable paths are kept —
+ * anything else the model puts in `files` is dropped before grading.
+ */
+function parseSubmission(
+  editable: string[],
+  input: unknown
+): { edits: Record<string, string>; submitted: string } {
+  const obj = (input ?? {}) as { content?: string; files?: Record<string, string> };
+
+  if (editable.length === 1) {
+    const content = obj.content ?? "";
+    return { edits: { [editable[0]!]: content }, submitted: content };
+  }
+
+  const provided = obj.files ?? {};
+  const edits: Record<string, string> = {};
+  for (const path of editable) {
+    if (typeof provided[path] === "string") edits[path] = provided[path]!;
+  }
+  const submitted = Object.entries(edits)
+    .map(([path, content]) => `--- ${path} ---\n${content}`)
+    .join("\n\n");
+  return { edits, submitted };
+}
 
 // Fallback for direct lib callers/tests only — the API routes always pass a
 // model validated against lib/loadouts.ts. Kept in sync with that catalog's
@@ -60,15 +130,20 @@ const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_MAX_ITERATIONS = 5;
 
 function buildInitialPrompt(challenge: Challenge, maxIterations: number): string {
-  const currentContent = challenge.files[challenge.solutionFile] ?? "";
+  const editable = new Set(editableFiles(challenge));
+
+  const editableBlocks = editableFiles(challenge)
+    .map((path) => `--- ${path} (current, buggy content — you may edit this) ---\n${challenge.files[path] ?? ""}`)
+    .join("\n\n");
+
   const supportingFiles = Object.entries(challenge.files)
-    .filter(([path]) => path !== challenge.solutionFile)
+    .filter(([path]) => !editable.has(path))
     .map(([path, content]) => `--- ${path} ---\n${content}`)
     .join("\n\n");
 
   return (
     `${challenge.prompt}\n\n` +
-    `--- ${challenge.solutionFile} (current, buggy content) ---\n${currentContent}\n\n` +
+    `${editableBlocks}\n\n` +
     (supportingFiles ? `${supportingFiles}\n\n` : "") +
     `Use the test_solution tool to try a fix and see the real test results. You have up to ` +
     `${maxIterations} attempts. Stop calling the tool once the tests pass.`
@@ -111,6 +186,9 @@ export async function runAgentLoop(
   const maxTokens = loadout.maxTokens ?? DEFAULT_MAX_TOKENS;
   const maxIterations = loadout.maxIterations ?? DEFAULT_MAX_ITERATIONS;
 
+  const editable = editableFiles(challenge);
+  const tool = buildTestSolutionTool(editable);
+
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildInitialPrompt(challenge, maxIterations) },
   ];
@@ -120,7 +198,7 @@ export async function runAgentLoop(
   let iterations = 0;
 
   while (iterations < maxIterations) {
-    const response = await client.messages.create({ model, max_tokens: maxTokens, tools: [TEST_SOLUTION_TOOL], messages });
+    const response = await client.messages.create({ model, max_tokens: maxTokens, tools: [tool], messages });
 
     const toolUse = response.content.find(isToolUseBlock);
     if (!toolUse) {
@@ -128,16 +206,15 @@ export async function runAgentLoop(
     }
 
     iterations += 1;
-    const input = toolUse.input as { content?: string };
-    const submittedContent = input.content ?? "";
-    lastResult = await runChallenge(challenge, submittedContent);
+    const { edits, submitted } = parseSubmission(editable, toolUse.input);
+    lastResult = await runChallenge(challenge, edits);
 
     const entry: TranscriptEntry = {
       iteration: iterations,
       passed: lastResult.passed,
       summary: lastResult.passed ? "tests passed" : "tests failed",
       reasoning: extractReasoning(response.content),
-      submittedContent,
+      submittedContent: submitted,
     };
     transcript.push(entry);
     onIteration?.(entry);

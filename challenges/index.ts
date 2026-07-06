@@ -1,5 +1,6 @@
 import type { Challenge } from "../lib/challenge";
 import { binarySearchChallenge } from "./binary-search";
+import { csvSumChallenge } from "./csv-sum";
 import { isPalindromeChallenge } from "./is-palindrome";
 import { mergeIntervalsChallenge } from "./merge-intervals";
 import { reverseWordsChallenge } from "./reverse-words";
@@ -11,6 +12,7 @@ export const challengeList: Challenge[] = [
   isPalindromeChallenge,
   binarySearchChallenge,
   mergeIntervalsChallenge,
+  csvSumChallenge,
 ];
 
 export const challenges: Record<string, Challenge> = Object.fromEntries(

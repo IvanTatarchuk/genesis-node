@@ -1,55 +1,15 @@
-﻿import type { Metadata } from "next";
-import "./globals.css";
-import { WebSiteSchema, SoftwareAppSchema } from "@/components/JsonLd";
-
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://matadora.business";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(BASE_URL),
-  title: {
-    default: "AGENTS.DEV â€“ AI Agent Marketplace",
-    template: "%s | AGENTS.DEV",
-  },
-  description:
-    "Built to help millions of people save time and get results. Deploy AI agents to automate any task â€” pay per result, no lock-in. For everyone: individuals, teams, and developers worldwide.",
-  keywords: ["AI agents", "AI marketplace", "automate tasks", "save time", "AI for everyone", "deploy AI", "LLM agents"],
-  authors: [{ name: "AGENTS.DEV" }],
-  creator: "AGENTS.DEV",
-  openGraph: {
-    type:        "website",
-    locale:      "en_US",
-    url:         BASE_URL,
-    siteName:    "AGENTS.DEV",
-    title:       "AGENTS.DEV â€“ AI Agent Marketplace",
-    description: "Built to help millions. Deploy AI agents â€” pay per result, watch in real time. For everyone.",
-    images: [{ url: "/og-default.png", width: 1200, height: 630, alt: "AGENTS.DEV" }],
-  },
-  twitter: {
-    card:        "summary_large_image",
-    title:       "AGENTS.DEV â€“ AI Agent Marketplace",
-    description: "Built to help millions. Deploy AI agents â€” pay per result, watch in real time. For everyone.",
-    images:      ["/og-default.png"],
-  },
-  robots: {
-    index:         true,
-    follow:        true,
-    googleBot: { index: true, follow: true, "max-image-preview": "large" },
-  },
+  title: "Agent Arena",
+  description: "Live, sandboxed tournaments for AI coding agents.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
-        <WebSiteSchema />
-        <SoftwareAppSchema />
-        {children}
-      </body>
+    <html lang="en">
+      <body>{children}</body>
     </html>
   );
 }
-

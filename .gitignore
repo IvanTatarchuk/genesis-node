@@ -1,38 +1,11 @@
-# ── Secrets (NEVER commit these) ──────────────────────────────
-.env
-.env.local
-.env.*.local
-*.pem
-*.key
-*client_secret*.json
-
-# ── Next.js ───────────────────────────────────────────────────
+node_modules/
 .next/
 out/
-
-# ── Node ──────────────────────────────────────────────────────
-node_modules/
-npm-debug.log*
-
-# ── Python ────────────────────────────────────────────────────
-__pycache__/
-*.py[cod]
-*.pyc
-.venv/
-venv/
+build/
 dist/
-*.egg-info/
-
-# ── Docker ────────────────────────────────────────────────────
-docker-compose.override.yml
-
-# ── OS ────────────────────────────────────────────────────────
+.env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
 .DS_Store
-Thumbs.db
-
-# ── IDE ───────────────────────────────────────────────────────
-.cursor/
-.vscode/
-*.swp
-
-.vercel
+runs/

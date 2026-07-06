@@ -134,6 +134,18 @@ npm run build   # full Next.js production build
     `--pids-limit`/`--memory` on the container this app itself runs in).
     Until then, the moderation gate is the actual mitigation: only the
     author's own runs execute an unapproved challenge's test command.
+- **Claim tokens**: `player_name` is free text anyone can type — without
+  more, that would let anyone spend another player's shards via
+  `/api/cosmetics/purchase` or re-equip their cosmetic. `players.claim_token`
+  (`supabase/schema.sql`) closes that: generated automatically when a player
+  row is first created (`award_shards`' `INSERT`), and handed back to the
+  client exactly once, at that moment (`AwardResult.claimToken` in
+  `lib/supabase.ts`, surfaced by `/api/runs` and `/api/runs/stream` only when
+  `is_new` is true). `purchase_cosmetic()`/`equip_cosmetic()` both require it
+  and raise if it doesn't match. The client stores it in `localStorage`
+  (`lib/claimToken.ts`) so playing under a name once is enough — there's no
+  recovery flow if it's lost (different device/browser, cleared storage),
+  matching the project's "no accounts" scope so far.
 
 ## Roadmap (see `docs/` in the mcp-guard repo's `IDEAS_BACKLOG.md` for the
 original design discussion)

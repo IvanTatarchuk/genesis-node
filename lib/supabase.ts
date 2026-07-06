@@ -109,39 +109,58 @@ export async function fetchPlayer(playerName: string): Promise<Player | null> {
   return data ?? null;
 }
 
+export interface AwardResult {
+  shards: number;
+  /**
+   * Only set when this call just created the player row (their very first
+   * award). The caller must surface this to the client this one time and
+   * never again — it's the proof of ownership purchaseCosmetic/
+   * equipCosmetic require, so a stranger who merely triggers an award for an
+   * existing player (e.g. by passing a challenge under their name) must
+   * never see it.
+   */
+  claimToken: string | null;
+}
+
 /**
  * Credits shards to a player, creating their row on the first award. Goes
  * through the award_shards() Postgres function so concurrent awards for the
  * same player can't race and drop one (see supabase/schema.sql).
  */
-export async function awardShards(playerName: string, amount: number): Promise<number> {
-  const { data, error } = await getServerSupabaseClient().rpc("award_shards", {
-    p_player_name: playerName,
-    p_amount: amount,
-  });
+export async function awardShards(playerName: string, amount: number): Promise<AwardResult> {
+  const { data, error } = await getServerSupabaseClient()
+    .rpc("award_shards", { p_player_name: playerName, p_amount: amount })
+    .single();
 
   if (error) {
     throw new Error(`failed to award shards: ${error.message}`);
   }
 
-  return data as number;
+  const row = data as { shards: number; claim_token: string; is_new: boolean };
+  return { shards: row.shards, claimToken: row.is_new ? row.claim_token : null };
 }
 
 /**
  * Spends shards on a cosmetic via the purchase_cosmetic() function, which
  * raises (and this rejects) rather than allowing a negative balance or a
- * double purchase. Callers should surface error.message directly — it's
- * already a plain-English reason (insufficient funds, already owned, etc).
+ * double purchase. claimToken must match the token handed back when this
+ * player was first created (see awardShards) — without that check,
+ * playerName alone is just free text anyone could type to spend someone
+ * else's shards. Callers should surface error.message directly — it's
+ * already a plain-English reason (insufficient funds, already owned,
+ * invalid token, etc).
  */
 export async function purchaseCosmetic(
   playerName: string,
   cosmeticId: string,
-  cost: number
+  cost: number,
+  claimToken: string
 ): Promise<number> {
   const { data, error } = await getServerSupabaseClient().rpc("purchase_cosmetic", {
     p_player_name: playerName,
     p_cosmetic_id: cosmeticId,
     p_cost: cost,
+    p_claim_token: claimToken,
   });
 
   if (error) {
@@ -151,10 +170,15 @@ export async function purchaseCosmetic(
   return data as number;
 }
 
-export async function equipCosmetic(playerName: string, cosmeticId: string): Promise<void> {
+export async function equipCosmetic(
+  playerName: string,
+  cosmeticId: string,
+  claimToken: string
+): Promise<void> {
   const { error } = await getServerSupabaseClient().rpc("equip_cosmetic", {
     p_player_name: playerName,
     p_cosmetic_id: cosmeticId,
+    p_claim_token: claimToken,
   });
 
   if (error) {

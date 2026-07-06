@@ -80,14 +80,19 @@ export async function POST(request: Request): Promise<Response> {
 
         const reward = calculateReward(finalResult.passed, iterations);
         let shardBalance: number | null = null;
+        let claimToken: string | null = null;
         if (reward > 0) {
           try {
-            shardBalance = await awardShards(playerName, reward);
+            const award = await awardShards(playerName, reward);
+            shardBalance = award.shards;
+            claimToken = award.claimToken;
           } catch (error) {
             console.error("failed to award shards:", error);
           }
         }
 
+        // See app/api/runs/route.ts for why the author's own claimToken is
+        // intentionally discarded here.
         const authorReward = calculateAuthorReward(finalResult.passed);
         if (authorReward > 0 && authorName && authorName !== playerName) {
           try {
@@ -98,7 +103,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         controller.enqueue(
-          sseEvent("done", { result: finalResult, iterations, reward, shardBalance })
+          sseEvent("done", { result: finalResult, iterations, reward, shardBalance, claimToken })
         );
       } catch (error) {
         controller.enqueue(

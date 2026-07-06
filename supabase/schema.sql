@@ -37,6 +37,31 @@ create table if not exists public.players (
   created_at timestamptz not null default now()
 );
 
+-- Proves ownership of a player_name for purchase_cosmetic/equip_cosmetic
+-- (see those functions below): player_name alone is just free text anyone
+-- can type, so without this, anyone could spend another player's shards or
+-- re-equip their cosmetic. Generated automatically on first creation
+-- (award_shards's INSERT) and revealed to the client exactly once, at that
+-- moment — never re-exposed by any later read.
+alter table public.players add column if not exists claim_token uuid not null default gen_random_uuid();
+
+-- Row-level "players are publicly readable" below only hides *rows* from the
+-- anon/authenticated roles, not columns — a future `select *` against this
+-- table with those roles would otherwise still return everyone's
+-- claim_token. Nothing in this app queries players with those roles today
+-- (see the policy's own comment), but block the column outright rather than
+-- rely on that staying true. Guarded because plain (non-Supabase) Postgres,
+-- used for local schema testing, has neither role.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    execute 'revoke select (claim_token) on public.players from anon';
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    execute 'revoke select (claim_token) on public.players from authenticated';
+  end if;
+end $$;
+
 -- Which cosmetics a player has bought — purely decorative, see lib/cosmetics.ts.
 create table if not exists public.player_cosmetics (
   player_name text not null references public.players (player_name),
@@ -89,31 +114,68 @@ create policy "player_cosmetics are publicly readable"
 -- bypasses RLS by design — no INSERT/UPDATE/DELETE policy is defined here on
 -- purpose.
 
+-- Anyone upgrading from before claim tokens existed has the old 3-arg
+-- purchase_cosmetic/2-arg equip_cosmetic and an integer-returning
+-- award_shards on disk. CREATE OR REPLACE cannot change a function's return
+-- type, and a different parameter list creates a new overload rather than
+-- replacing the old one — either way, without an explicit DROP first, the
+-- old, unauthenticated versions of these functions would remain callable
+-- right alongside the new ones. Drop them by their old signatures before
+-- redefining below.
+drop function if exists public.award_shards(text, integer);
+drop function if exists public.purchase_cosmetic(text, text, integer);
+drop function if exists public.equip_cosmetic(text, text);
+
 -- Atomic upsert-and-increment: creates the player row on their very first
--- shard award, otherwise adds to the existing balance. Returns the new
--- balance. Written as a function (not a client-side read-then-write) so
--- concurrent awards for the same player can't race and drop one.
+-- shard award, otherwise adds to the existing balance. Written as a function
+-- (not a client-side read-then-write) so concurrent awards for the same
+-- player can't race and drop one. Returns whether this call just created the
+-- row (is_new) alongside the token — the caller (lib/supabase.ts) uses is_new
+-- to decide whether it's safe to hand claim_token back to the client this
+-- one time; on every later call for the same player, is_new is false and the
+-- token must not be surfaced again.
 create or replace function public.award_shards(p_player_name text, p_amount integer)
-returns integer as $$
+returns table(shards integer, claim_token uuid, is_new boolean) as $$
+declare
+  v_existed boolean;
+begin
+  select exists(select 1 from public.players p where p.player_name = p_player_name) into v_existed;
+
   insert into public.players (player_name, shards)
   values (p_player_name, p_amount)
   on conflict (player_name) do update
-    set shards = public.players.shards + excluded.shards
-  returning shards;
-$$ language sql;
+    set shards = public.players.shards + excluded.shards;
+
+  return query
+  select p.shards, p.claim_token, not v_existed
+  from public.players p
+  where p.player_name = p_player_name;
+end;
+$$ language plpgsql;
 
 -- Atomic spend-and-own: fails (raises) rather than silently going negative
 -- or double-selling a cosmetic if a player somehow fires two purchases at
--- once. Returns the new balance on success.
-create or replace function public.purchase_cosmetic(p_player_name text, p_cosmetic_id text, p_cost integer)
+-- once. p_claim_token must match the token handed back when this player was
+-- first created (see award_shards) — without this check, player_name alone
+-- is just free text anyone could type to spend someone else's shards.
+-- Returns the new balance on success.
+create or replace function public.purchase_cosmetic(
+  p_player_name text, p_cosmetic_id text, p_cost integer, p_claim_token uuid
+)
 returns integer as $$
 declare
   v_balance integer;
+  v_token uuid;
 begin
-  select shards into v_balance from public.players where player_name = p_player_name for update;
+  select shards, claim_token into v_balance, v_token
+  from public.players where player_name = p_player_name for update;
 
   if v_balance is null then
     raise exception 'player % does not exist yet', p_player_name;
+  end if;
+
+  if v_token != p_claim_token then
+    raise exception 'invalid claim token for player %', p_player_name;
   end if;
 
   if v_balance < p_cost then
@@ -136,10 +198,23 @@ $$ language plpgsql;
 
 -- Equip an already-owned cosmetic as the one shown on the leaderboard. Fails
 -- if the player doesn't actually own it, so equipping can't be used to fake
--- ownership of something never purchased.
-create or replace function public.equip_cosmetic(p_player_name text, p_cosmetic_id text)
+-- ownership of something never purchased. Same p_claim_token check as
+-- purchase_cosmetic, for the same reason.
+create or replace function public.equip_cosmetic(p_player_name text, p_cosmetic_id text, p_claim_token uuid)
 returns void as $$
+declare
+  v_token uuid;
 begin
+  select claim_token into v_token from public.players where player_name = p_player_name;
+
+  if v_token is null then
+    raise exception 'player % does not exist yet', p_player_name;
+  end if;
+
+  if v_token != p_claim_token then
+    raise exception 'invalid claim token for player %', p_player_name;
+  end if;
+
   if not exists (
     select 1 from public.player_cosmetics
     where player_name = p_player_name and cosmetic_id = p_cosmetic_id

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { challengeList } from "@/challenges";
+import { storeClaimToken } from "@/lib/claimToken";
 
 interface ChallengeMeta {
   id: string;
@@ -32,6 +33,7 @@ interface DonePayload {
   iterations: number;
   reward: number;
   shardBalance: number | null;
+  claimToken: string | null;
 }
 
 /**
@@ -114,7 +116,11 @@ export default function HomePage() {
       if (event === "iteration") {
         setLiveIterations((prev) => [...prev, data as LiveIteration]);
       } else if (event === "done") {
-        setDone(data as DonePayload);
+        const payload = data as DonePayload;
+        setDone(payload);
+        if (payload.claimToken) {
+          storeClaimToken(playerName, payload.claimToken);
+        }
       } else if (event === "error") {
         setError((data as { error: string }).error);
       }
@@ -214,6 +220,12 @@ export default function HomePage() {
           {done.reward > 0 && (
             <p>
               +{done.reward} shards earned{done.shardBalance !== null && ` (balance: ${done.shardBalance})`}
+            </p>
+          )}
+          {done.claimToken && (
+            <p style={{ color: "#555" }}>
+              This name is now yours on this browser — the shop will recognize it automatically.
+              Playing from another device won&apos;t let you spend these shards there.
             </p>
           )}
         </div>

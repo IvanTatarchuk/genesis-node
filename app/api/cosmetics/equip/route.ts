@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 interface EquipBody {
   playerName?: string;
   cosmeticId?: string;
+  claimToken?: string;
 }
 
 /**
@@ -23,10 +24,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const { playerName, cosmeticId } = body;
-  if (!playerName || !cosmeticId) {
+  const { playerName, cosmeticId, claimToken } = body;
+  if (!playerName || !cosmeticId || !claimToken) {
     return NextResponse.json(
-      { error: "playerName and cosmeticId are both required" },
+      { error: "playerName, cosmeticId, and claimToken are all required" },
       { status: 400 }
     );
   }
@@ -38,7 +39,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    await equipCosmetic(playerName, cosmeticId);
+    await equipCosmetic(playerName, cosmeticId, claimToken);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(

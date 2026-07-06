@@ -77,9 +77,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const reward = calculateReward(finalResult.passed, iterations);
   let shardBalance: number | null = null;
+  let claimToken: string | null = null;
   if (reward > 0) {
     try {
-      shardBalance = await awardShards(playerName, reward);
+      const award = await awardShards(playerName, reward);
+      shardBalance = award.shards;
+      claimToken = award.claimToken;
     } catch (error) {
       console.error("failed to award shards:", error);
     }
@@ -88,7 +91,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Revenue share for player-authored challenges: a flat shard reward to the
   // author on every passing run, not just the passer's own reward. Skipped
   // for built-ins (authorName is null) and for an author farming their own
-  // challenge.
+  // challenge. The author's own claimToken is intentionally discarded here —
+  // it must never reach whoever merely triggered their reward by passing
+  // their challenge, only the author themselves (on their own first award).
   const authorReward = calculateAuthorReward(finalResult.passed);
   if (authorReward > 0 && authorName && authorName !== playerName) {
     try {
@@ -98,5 +103,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ result: finalResult, iterations, transcript, reward, shardBalance });
+  return NextResponse.json({
+    result: finalResult,
+    iterations,
+    transcript,
+    reward,
+    shardBalance,
+    claimToken,
+  });
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
+import { getStoredClaimToken } from "@/lib/claimToken";
 import { cosmeticsList } from "@/lib/cosmetics";
 
 interface PlayerState {
@@ -15,12 +16,16 @@ interface PlayerState {
  * Shop/profile page: load a player by name, see their shard balance, buy
  * cosmetics with shards, and equip an owned one to show on the leaderboard.
  * No login system exists yet — player identity is just the name typed here,
- * same as the run submission form on the home page.
+ * same as the run submission form on the home page. Buying/equipping does
+ * require proof of ownership though (see lib/claimToken.ts): this page reads
+ * that name's claim token from localStorage, so it only works from a
+ * browser that has actually played as this name before.
  */
 export default function ShopPage() {
   const [playerName, setPlayerName] = useState("");
   const [loadedName, setLoadedName] = useState<string | null>(null);
   const [player, setPlayer] = useState<PlayerState | null>(null);
+  const [claimToken, setClaimToken] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +43,7 @@ export default function ShopPage() {
       ownedCosmeticIds: body.ownedCosmeticIds,
     });
     setLoadedName(name);
+    setClaimToken(getStoredClaimToken(name));
   }
 
   async function handleLoad(event: FormEvent) {
@@ -47,14 +53,14 @@ export default function ShopPage() {
   }
 
   async function handleBuy(cosmeticId: string) {
-    if (!loadedName) return;
+    if (!loadedName || !claimToken) return;
     setBusyId(cosmeticId);
     setError(null);
 
     const res = await fetch("/api/cosmetics/purchase", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playerName: loadedName, cosmeticId }),
+      body: JSON.stringify({ playerName: loadedName, cosmeticId, claimToken }),
     });
     const body = await res.json();
     setBusyId(null);
@@ -67,14 +73,14 @@ export default function ShopPage() {
   }
 
   async function handleEquip(cosmeticId: string) {
-    if (!loadedName) return;
+    if (!loadedName || !claimToken) return;
     setBusyId(cosmeticId);
     setError(null);
 
     const res = await fetch("/api/cosmetics/equip", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playerName: loadedName, cosmeticId }),
+      body: JSON.stringify({ playerName: loadedName, cosmeticId, claimToken }),
     });
     const body = await res.json();
     setBusyId(null);
@@ -112,6 +118,13 @@ export default function ShopPage() {
         </p>
       )}
 
+      {player && !claimToken && (
+        <p style={{ color: "#a60" }}>
+          This browser doesn&apos;t recognize &quot;{loadedName}&quot; as yours — play a challenge
+          under this name here first before you can buy or equip anything.
+        </p>
+      )}
+
       <div style={{ display: "grid", gap: "0.75rem" }}>
         {cosmeticsList.map((cosmetic) => {
           const owned = player?.ownedCosmeticIds.includes(cosmetic.id) ?? false;
@@ -138,12 +151,15 @@ export default function ShopPage() {
               </div>
 
               {!player ? null : owned ? (
-                <button disabled={equipped || busyId === cosmetic.id} onClick={() => handleEquip(cosmetic.id)}>
+                <button
+                  disabled={equipped || !claimToken || busyId === cosmetic.id}
+                  onClick={() => handleEquip(cosmetic.id)}
+                >
                   {equipped ? "Equipped" : busyId === cosmetic.id ? "Equipping..." : "Equip"}
                 </button>
               ) : (
                 <button
-                  disabled={!canAfford || busyId === cosmetic.id}
+                  disabled={!canAfford || !claimToken || busyId === cosmetic.id}
                   onClick={() => handleBuy(cosmetic.id)}
                 >
                   {busyId === cosmetic.id ? "Buying..." : "Buy"}

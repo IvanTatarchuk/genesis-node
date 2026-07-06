@@ -5,6 +5,13 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { challengeList } from "@/challenges";
 import { storeClaimToken } from "@/lib/claimToken";
+import {
+  DEFAULT_ITERATIONS,
+  DEFAULT_MODEL,
+  MAX_ITERATIONS,
+  MIN_ITERATIONS,
+  MODELS,
+} from "@/lib/loadouts";
 
 interface ChallengeMeta {
   id: string;
@@ -74,6 +81,8 @@ export default function HomePage() {
   const [challengeId, setChallengeId] = useState(builtInMeta[0]!.id);
   const [playerName, setPlayerName] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [maxIterations, setMaxIterations] = useState(DEFAULT_ITERATIONS);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [liveIterations, setLiveIterations] = useState<LiveIteration[]>([]);
   const [done, setDone] = useState<DonePayload | null>(null);
@@ -91,6 +100,11 @@ export default function HomePage() {
     [challenges, challengeId]
   );
 
+  const selectedModel = useMemo(
+    () => MODELS.find((m) => m.id === model) ?? MODELS[0]!,
+    [model]
+  );
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setStatus("running");
@@ -101,7 +115,7 @@ export default function HomePage() {
     const res = await fetch("/api/runs/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeId, playerName, apiKey }),
+      body: JSON.stringify({ challengeId, playerName, apiKey, model, maxIterations }),
     });
 
     const contentType = res.headers.get("content-type") ?? "";
@@ -175,6 +189,44 @@ export default function HomePage() {
             style={{ display: "block", width: "100%" }}
           />
         </label>
+
+        <fieldset style={{ border: "1px solid #ddd", borderRadius: 4, padding: "0.75rem", display: "grid", gap: "0.75rem" }}>
+          <legend style={{ padding: "0 0.4rem", color: "#555" }}>Loadout</legend>
+          <label>
+            Model
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              style={{ display: "block", width: "100%" }}
+            >
+              {MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+              {selectedModel.blurb}
+            </span>
+          </label>
+          <label>
+            Attempt budget: {maxIterations}
+            <input
+              type="range"
+              min={MIN_ITERATIONS}
+              max={MAX_ITERATIONS}
+              step={1}
+              value={maxIterations}
+              onChange={(e) => setMaxIterations(Number(e.target.value))}
+              style={{ display: "block", width: "100%" }}
+            />
+            <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+              How many times the agent may test-and-revise. A one-shot pass earns the most shards;
+              each extra attempt tapers the reward.
+            </span>
+          </label>
+        </fieldset>
+
         <button type="submit" disabled={status === "running"}>
           {status === "running" ? "Running..." : "Run"}
         </button>

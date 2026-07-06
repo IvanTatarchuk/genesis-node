@@ -52,7 +52,10 @@ const TEST_SOLUTION_TOOL: Anthropic.Tool = {
   },
 };
 
-const DEFAULT_MODEL = "claude-sonnet-4-5";
+// Fallback for direct lib callers/tests only — the API routes always pass a
+// model validated against lib/loadouts.ts. Kept in sync with that catalog's
+// DEFAULT_MODEL, but not imported so this module stays standalone.
+const DEFAULT_MODEL = "claude-sonnet-5";
 const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_MAX_ITERATIONS = 5;
 

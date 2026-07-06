@@ -52,9 +52,21 @@ catalog. What exists right now:
   client reads and parses the stream manually via `fetch`. The plain
   non-streaming `POST /api/runs` still exists too, for simpler
   programmatic/non-UI callers.
-- Minimal UI: `/` (pick a challenge from a dropdown, watch attempts arrive
-  live, shows final attempt count) and `/leaderboard?challenge=<id>`
-  (per-challenge, with links to switch between all four).
+- A real, validated loadout (`lib/loadouts.ts`) — the "model + budget" the
+  pitch is built around, now actually chosen by the player instead of always
+  defaulting server-side. A curated model catalog (Opus 4.8 / Sonnet 5 /
+  Haiku 4.5 — each a real id the player's own key can call) and a bounded
+  attempt budget are the single source of truth for both the UI picker and
+  the server: `validateLoadout` rejects an unknown model or an out-of-range
+  budget with a `400` before any work runs, so a typo can't 404 deep in the
+  agent call or land a bogus model string on the public leaderboard, and a
+  direct caller can't pass `maxIterations: 10000` and tie up a request (each
+  attempt is a real sandboxed grading run plus a real model call) for the whole
+  `maxDuration` window. Unit-tested in `tests/loadouts.test.ts`.
+- Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
+  budget — watch attempts arrive live, shows final attempt count) and
+  `/leaderboard?challenge=<id>` (per-challenge, with links to switch between
+  all four; the Model column now shows which loadout each run used).
 
 **Verified end-to-end**, including a real call to the Anthropic API (rejected
 cleanly with a real 401 when given a fake key, delivered as a real streamed
@@ -157,6 +169,10 @@ original design discussion)
 - [x] Cosmetics/skins economy (no cashout, no wagering — see design notes)
 - [x] Player-authored challenges with revenue share (shards, not cash — see
       the known cgroups gap above before exposing this beyond trusted users)
+- [x] Player-chosen loadout (model + attempt budget), validated server-side
+      against a curated catalog (`lib/loadouts.ts`) — still open: pricing the
+      loadout into the economy (a bigger model / bigger budget currently costs
+      the same in shard terms as a one-shot Haiku pass)
 
 ## License
 

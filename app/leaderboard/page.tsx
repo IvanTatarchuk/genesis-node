@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import { listChallengeMetadata } from "@/lib/challengeSource";
 import { cosmetics } from "@/lib/cosmetics";
+import { modelLabel } from "@/lib/loadouts";
 import { fetchLeaderboard } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -75,7 +76,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
                       </span>
                     )}
                   </td>
-                  <td style={cellStyle}>{row.model}</td>
+                  <td style={cellStyle} title={row.model}>{modelLabel(row.model)}</td>
                   <td style={cellStyle}>{row.duration_ms}ms</td>
                   <td style={cellStyle}>{row.iterations}</td>
                 </tr>

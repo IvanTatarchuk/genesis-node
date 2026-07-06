@@ -1,6 +1,7 @@
 import { runAgentLoop, type TranscriptEntry } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
+import { validateLoadout } from "@/lib/loadouts";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -42,6 +43,11 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  const loadout = validateLoadout({ model, maxIterations });
+  if (!loadout.ok) {
+    return new Response(JSON.stringify({ error: loadout.error }), { status: 400 });
+  }
+
   let challenge, authorName;
   try {
     ({ challenge, authorName } = await resolveChallenge(challengeId));
@@ -58,7 +64,7 @@ export async function POST(request: Request): Promise<Response> {
       try {
         const { finalResult, iterations } = await runAgentLoop(
           challenge,
-          { apiKey, model, maxIterations },
+          { apiKey, ...loadout.loadout },
           undefined,
           onIteration
         );
@@ -67,7 +73,7 @@ export async function POST(request: Request): Promise<Response> {
           await recordRun({
             challenge_id: challenge.id,
             player_name: playerName,
-            model: model ?? "claude-sonnet-4-5",
+            model: loadout.loadout.model,
             passed: finalResult.passed,
             duration_ms: finalResult.durationMs,
             iterations,

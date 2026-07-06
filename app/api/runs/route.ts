@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { runAgentLoop } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
+import { validateLoadout } from "@/lib/loadouts";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -39,6 +40,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  const loadout = validateLoadout({ model, maxIterations });
+  if (!loadout.ok) {
+    return NextResponse.json({ error: loadout.error }, { status: 400 });
+  }
+
   let challenge, authorName;
   try {
     ({ challenge, authorName } = await resolveChallenge(challengeId));
@@ -48,7 +54,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let loopResult;
   try {
-    loopResult = await runAgentLoop(challenge, { apiKey, model, maxIterations });
+    loopResult = await runAgentLoop(challenge, { apiKey, ...loadout.loadout });
   } catch (error) {
     return NextResponse.json(
       { error: `agent call failed: ${error instanceof Error ? error.message : String(error)}` },
@@ -62,7 +68,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     await recordRun({
       challenge_id: challenge.id,
       player_name: playerName,
-      model: model ?? "claude-sonnet-4-5",
+      model: loadout.loadout.model,
       passed: finalResult.passed,
       duration_ms: finalResult.durationMs,
       iterations,

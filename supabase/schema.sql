@@ -12,25 +12,35 @@ create table if not exists public.runs (
   model text not null,
   passed boolean not null,
   duration_ms integer not null,
+  iterations integer not null default 1,
   stdout text not null default '',
   stderr text not null default '',
   created_at timestamptz not null default now()
 );
 
+-- Idempotent for anyone who applied an earlier version of this schema before
+-- `iterations` (the multi-turn agent loop) existed — CREATE TABLE IF NOT
+-- EXISTS above is a no-op against an existing table, so the column needs its
+-- own migration path.
+alter table public.runs add column if not exists iterations integer not null default 1;
+
 create index if not exists runs_challenge_id_idx on public.runs (challenge_id);
 create index if not exists runs_created_at_idx on public.runs (created_at desc);
 
 -- Fastest *passing* run per player per challenge — what the leaderboard reads.
+-- Ties on duration broken by fewer iterations (a one-shot pass beats a
+-- five-attempt pass at the same speed).
 create or replace view public.leaderboard as
 select distinct on (challenge_id, player_name)
   challenge_id,
   player_name,
   model,
   duration_ms,
+  iterations,
   created_at
 from public.runs
 where passed = true
-order by challenge_id, player_name, duration_ms asc;
+order by challenge_id, player_name, duration_ms asc, iterations asc;
 
 alter table public.runs enable row level security;
 

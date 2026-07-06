@@ -7,6 +7,7 @@ import { sumRangeChallenge } from "@/challenges/sum-range";
 
 interface RunResponse {
   result?: { passed: boolean; durationMs: number; stdout: string; stderr: string };
+  iterations?: number;
   error?: string;
 }
 
@@ -71,7 +72,8 @@ export default function HomePage() {
         <div style={{ marginTop: "1rem" }}>
           <p>
             Result: <strong>{response.result.passed ? "PASSED" : "FAILED"}</strong> in{" "}
-            {response.result.durationMs}ms
+            {response.result.durationMs}ms ({response.iterations}{" "}
+            {response.iterations === 1 ? "attempt" : "attempts"})
           </p>
           <pre style={{ background: "#f4f4f4", padding: "0.75rem", overflowX: "auto" }}>
             {response.result.stdout || response.result.stderr}

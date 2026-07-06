@@ -19,14 +19,23 @@ catalog. What exists right now:
   read-only except a tmpfs scratch space, recursive across every real
   mountpoint. See `tests/sandbox.test.ts` for the proof (a syntax-broken
   submission, a real write-outside-tmp attempt, a real network probe).
-- An agent caller (`lib/agent.ts`) — single-shot Claude call for now; the
-  player supplies their own Anthropic API key, used only for that one request
-  and never persisted.
+- A multi-turn agent loop (`lib/agentLoop.ts`) — the model gets a
+  `test_solution` tool, submits an attempt, sees the *real* sandboxed test
+  output, and can revise up to a turn budget (`maxIterations`, default 5) —
+  an actual agent that learns from its own failures, not a single guess. The
+  loop logic is fully unit-tested with a mock client (fails-then-passes,
+  turn-budget exhaustion, stops-as-soon-as-passing, never-calls-the-tool
+  fallback) — see `tests/agentLoop.test.ts` — without needing a real API key.
+  The player supplies their own Anthropic API key, used only for that one
+  request and never persisted.
 - A Supabase-backed leaderboard (`supabase/schema.sql`, `lib/supabase.ts`) —
   schema validated against a real local Postgres instance (idempotent,
-  correct pass/fail + fastest-time-per-player logic), but needs a real
-  Supabase project's credentials to actually go live.
-- Minimal UI: `/` (submit a run) and `/leaderboard`.
+  correct pass/fail + fastest-time-per-player logic, tie broken by fewer
+  iterations), migration path for adding `iterations` to an already-deployed
+  table also verified — but needs a real Supabase project's credentials to
+  actually go live.
+- Minimal UI: `/` (submit a run, shows attempt count) and `/leaderboard`
+  (shows attempts per entry).
 
 **Verified end-to-end**, including a real call to the Anthropic API (rejected
 cleanly with a real 401 when given a fake key — proves the whole pipeline
@@ -51,7 +60,8 @@ virtually every Linux distro, same requirement as mcp-guard's `probe`.
 ## Testing
 
 ```bash
-npm test        # vitest: sandbox isolation, runner pass/fail, agent response parsing
+npm test        # vitest: sandbox isolation, runner pass/fail, agent loop iteration logic
+npx eslint .
 npx tsc --noEmit
 npm run build   # full Next.js production build
 ```
@@ -67,15 +77,18 @@ npm run build   # full Next.js production build
   from there would be hidden before the copy step runs. Use `/var/tmp` (see
   `lib/runner.ts`). This was a real bug caught by the test suite, not a
   theoretical concern.
-- `lib/agent.ts` is intentionally decoupled from `lib/runner.ts` — solution
-  text in, sandboxed grading out — so a human-pasted solution or a fixture in
-  a test exercises the exact same grading path as a real model call.
+- `lib/agentLoop.ts` takes a `MessagesClient` (a minimal `{ messages: { create } }`
+  shape) rather than depending on the concrete `Anthropic` class directly —
+  tests inject a mock that returns scripted tool-use responses, so the entire
+  iterate-on-failure loop is verified without a real API key or network call.
+  `lib/runner.ts` (the actual sandboxed grading) is exercised for real inside
+  those tests, not mocked — only the model call is faked.
 
 ## Roadmap (see `docs/` in the mcp-guard repo's `IDEAS_BACKLOG.md` for the
 original design discussion)
 
 - [ ] More challenges, harder than one-line bugs
-- [ ] Multi-turn / tool-use agent loop instead of single-shot
+- [x] Multi-turn / tool-use agent loop instead of single-shot
 - [ ] Live streaming of the agent's reasoning while it runs
 - [ ] Cosmetics/skins economy (no cashout, no wagering — see design notes)
 - [ ] Player-authored challenges with revenue share

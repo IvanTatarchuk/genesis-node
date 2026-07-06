@@ -6,6 +6,7 @@ export interface RunRecord {
   model: string;
   passed: boolean;
   duration_ms: number;
+  iterations: number;
   stdout: string;
   stderr: string;
 }
@@ -15,6 +16,7 @@ export interface LeaderboardRow {
   player_name: string;
   model: string;
   duration_ms: number;
+  iterations: number;
   created_at: string;
 }
 
@@ -55,7 +57,8 @@ export async function fetchLeaderboard(challengeId: string): Promise<Leaderboard
     .from("leaderboard")
     .select("*")
     .eq("challenge_id", challengeId)
-    .order("duration_ms", { ascending: true });
+    .order("duration_ms", { ascending: true })
+    .order("iterations", { ascending: true });
 
   if (error) {
     throw new Error(`failed to fetch leaderboard: ${error.message}`);

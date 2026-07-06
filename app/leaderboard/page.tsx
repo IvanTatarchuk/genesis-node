@@ -35,6 +35,7 @@ export default async function LeaderboardPage() {
               <th style={cellStyle}>Player</th>
               <th style={cellStyle}>Model</th>
               <th style={cellStyle}>Time</th>
+              <th style={cellStyle}>Attempts</th>
             </tr>
           </thead>
           <tbody>
@@ -44,6 +45,7 @@ export default async function LeaderboardPage() {
                 <td style={cellStyle}>{row.player_name}</td>
                 <td style={cellStyle}>{row.model}</td>
                 <td style={cellStyle}>{row.duration_ms}ms</td>
+                <td style={cellStyle}>{row.iterations}</td>
               </tr>
             ))}
           </tbody>

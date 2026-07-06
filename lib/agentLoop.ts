@@ -15,6 +15,10 @@ export interface TranscriptEntry {
   iteration: number;
   passed: boolean;
   summary: string;
+  /** Any text the model wrote alongside the tool call (its stated reasoning), if it wrote any. */
+  reasoning: string;
+  /** What it actually submitted, so a live viewer can show the attempt, not just pass/fail. */
+  submittedContent: string;
 }
 
 export interface AgentLoopResult {
@@ -72,6 +76,14 @@ function isToolUseBlock(block: Anthropic.ContentBlock): block is Anthropic.ToolU
   return block.type === "tool_use";
 }
 
+function isTextBlock(block: Anthropic.ContentBlock): block is Anthropic.TextBlock {
+  return block.type === "text";
+}
+
+function extractReasoning(content: Anthropic.ContentBlock[]): string {
+  return content.filter(isTextBlock).map((block) => block.text).join("\n").trim();
+}
+
 /**
  * Iteratively: ask the model for a solution via the `test_solution` tool, grade
  * it for real in the sandbox, feed the actual test output back, repeat — up to
@@ -80,11 +92,17 @@ function isToolUseBlock(block: Anthropic.ContentBlock): block is Anthropic.ToolU
  *
  * `client` is injectable so the loop logic is fully testable with a mock that
  * simulates tool-use responses, without needing a real API key.
+ *
+ * `onIteration`, if given, fires synchronously right after each attempt is
+ * graded — before the loop decides whether to continue — so a caller (e.g. an
+ * SSE route) can stream progress live instead of waiting for the whole loop
+ * to finish.
  */
 export async function runAgentLoop(
   challenge: Challenge,
   loadout: LoadoutConfig,
-  client: MessagesClient = new Anthropic({ apiKey: loadout.apiKey })
+  client: MessagesClient = new Anthropic({ apiKey: loadout.apiKey }),
+  onIteration?: (entry: TranscriptEntry) => void
 ): Promise<AgentLoopResult> {
   const model = loadout.model ?? DEFAULT_MODEL;
   const maxTokens = loadout.maxTokens ?? DEFAULT_MAX_TOKENS;
@@ -108,13 +126,18 @@ export async function runAgentLoop(
 
     iterations += 1;
     const input = toolUse.input as { content?: string };
-    lastResult = await runChallenge(challenge, input.content ?? "");
+    const submittedContent = input.content ?? "";
+    lastResult = await runChallenge(challenge, submittedContent);
 
-    transcript.push({
+    const entry: TranscriptEntry = {
       iteration: iterations,
       passed: lastResult.passed,
       summary: lastResult.passed ? "tests passed" : "tests failed",
-    });
+      reasoning: extractReasoning(response.content),
+      submittedContent,
+    };
+    transcript.push(entry);
+    onIteration?.(entry);
 
     messages.push({ role: "assistant", content: response.content });
     messages.push({

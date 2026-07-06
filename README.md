@@ -43,14 +43,25 @@ catalog. What exists right now:
   iterations), migration path for adding `iterations` to an already-deployed
   table also verified — but needs a real Supabase project's credentials to
   actually go live.
-- Minimal UI: `/` (pick a challenge from a dropdown, submit a run, shows
-  attempt count) and `/leaderboard?challenge=<id>` (per-challenge, with links
-  to switch between all four).
+- Live streaming (`app/api/runs/stream/route.ts`, `POST /api/runs/stream`) —
+  each attempt streams to the browser as Server-Sent Events the moment it's
+  graded, with the model's own stated reasoning alongside pass/fail, instead
+  of the UI going silent until the whole loop finishes. Not the browser's
+  `EventSource` — that only supports GET, and the caller's API key belongs in
+  a POST body, not a URL that ends up in server logs/browser history — so the
+  client reads and parses the stream manually via `fetch`. The plain
+  non-streaming `POST /api/runs` still exists too, for simpler
+  programmatic/non-UI callers.
+- Minimal UI: `/` (pick a challenge from a dropdown, watch attempts arrive
+  live, shows final attempt count) and `/leaderboard?challenge=<id>`
+  (per-challenge, with links to switch between all four).
 
 **Verified end-to-end**, including a real call to the Anthropic API (rejected
-cleanly with a real 401 when given a fake key — proves the whole pipeline
-wiring, not just the pieces in isolation). What hasn't been verified: an
-actual valid API key producing an actual passing/failing solution, and the
+cleanly with a real 401 when given a fake key, delivered as a real streamed
+SSE `error` event and rendered correctly by the actual browser UI — checked
+with Playwright, not just curl) and a real local Postgres schema
+application. What hasn't been verified: an actual valid API key producing an
+actual passing/failing solution with real streamed iterations, and the
 Supabase writes/reads against a real project — both need real credentials
 this repo doesn't have.
 
@@ -100,7 +111,7 @@ original design discussion)
 - [x] More challenges beyond the first one-line bug (still all single-file,
       single-bug — genuinely harder/multi-file challenges are still open)
 - [x] Multi-turn / tool-use agent loop instead of single-shot
-- [ ] Live streaming of the agent's reasoning while it runs
+- [x] Live streaming of the agent's reasoning while it runs
 - [ ] Cosmetics/skins economy (no cashout, no wagering — see design notes)
 - [ ] Player-authored challenges with revenue share
 

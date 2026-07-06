@@ -1,0 +1,98 @@
+import { getChallenge } from "@/challenges";
+import { runAgentLoop, type TranscriptEntry } from "@/lib/agentLoop";
+import { recordRun } from "@/lib/supabase";
+
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
+interface SubmitRunBody {
+  challengeId?: string;
+  playerName?: string;
+  apiKey?: string;
+  model?: string;
+  maxIterations?: number;
+}
+
+function sseEvent(event: string, data: unknown): Uint8Array {
+  return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * Same run as POST /api/runs, but streamed via Server-Sent Events: an
+ * "iteration" event fires as each attempt is graded (live, not batched at the
+ * end), then one "done" or "error" event. POST (not GET) so the caller's API
+ * key travels in the body, not a URL that ends up in server logs/browser
+ * history — which is also why this can't use the browser's native
+ * EventSource (it only supports GET); the client reads the stream via fetch.
+ */
+export async function POST(request: Request): Promise<Response> {
+  let body: SubmitRunBody;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "invalid JSON body" }), { status: 400 });
+  }
+
+  const { challengeId, playerName, apiKey, model, maxIterations } = body;
+  if (!challengeId || !playerName || !apiKey) {
+    return new Response(
+      JSON.stringify({ error: "challengeId, playerName, and apiKey are all required" }),
+      { status: 400 }
+    );
+  }
+
+  let challenge;
+  try {
+    challenge = getChallenge(challengeId);
+  } catch {
+    return new Response(JSON.stringify({ error: `unknown challenge: ${challengeId}` }), { status: 404 });
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const onIteration = (entry: TranscriptEntry) => {
+        controller.enqueue(sseEvent("iteration", entry));
+      };
+
+      try {
+        const { finalResult, iterations } = await runAgentLoop(
+          challenge,
+          { apiKey, model, maxIterations },
+          undefined,
+          onIteration
+        );
+
+        try {
+          await recordRun({
+            challenge_id: challenge.id,
+            player_name: playerName,
+            model: model ?? "claude-sonnet-4-5",
+            passed: finalResult.passed,
+            duration_ms: finalResult.durationMs,
+            iterations,
+            stdout: finalResult.stdout.slice(0, 10_000),
+            stderr: finalResult.stderr.slice(0, 10_000),
+          });
+        } catch (error) {
+          console.error("failed to record run to Supabase:", error);
+        }
+
+        controller.enqueue(sseEvent("done", { result: finalResult, iterations }));
+      } catch (error) {
+        controller.enqueue(
+          sseEvent("error", { error: error instanceof Error ? error.message : String(error) })
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
+}

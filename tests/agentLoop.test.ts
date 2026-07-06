@@ -18,13 +18,19 @@ const FIXED = [
   "",
 ].join("\n");
 
-function toolUseResponse(id: string, content: string): Anthropic.Message {
+function toolUseResponse(id: string, content: string, reasoning?: string): Anthropic.Message {
+  const blocks: Anthropic.ContentBlock[] = [];
+  if (reasoning) {
+    blocks.push({ type: "text", text: reasoning, citations: null } as Anthropic.TextBlock);
+  }
+  blocks.push({ type: "tool_use", id, name: "test_solution", input: { content } } as Anthropic.ToolUseBlock);
+
   return {
     id: "msg_test",
     type: "message",
     role: "assistant",
     model: "claude-sonnet-4-5",
-    content: [{ type: "tool_use", id, name: "test_solution", input: { content } }],
+    content: blocks,
     stop_reason: "tool_use",
     stop_sequence: null,
     usage: { input_tokens: 1, output_tokens: 1 },
@@ -48,7 +54,7 @@ describe("runAgentLoop", () => {
   it("iterates: fails once, then submits a fix that passes", async () => {
     const create = vi
       .fn()
-      .mockResolvedValueOnce(toolUseResponse("call_1", BUGGY))
+      .mockResolvedValueOnce(toolUseResponse("call_1", BUGGY, "Let me try the obvious fix first."))
       .mockResolvedValueOnce(toolUseResponse("call_2", FIXED));
     const client: MessagesClient = { messages: { create } };
 
@@ -57,10 +63,35 @@ describe("runAgentLoop", () => {
     expect(result.iterations).toBe(2);
     expect(result.finalResult.passed).toBe(true);
     expect(result.transcript).toEqual([
-      { iteration: 1, passed: false, summary: "tests failed" },
-      { iteration: 2, passed: true, summary: "tests passed" },
+      {
+        iteration: 1,
+        passed: false,
+        summary: "tests failed",
+        reasoning: "Let me try the obvious fix first.",
+        submittedContent: BUGGY,
+      },
+      { iteration: 2, passed: true, summary: "tests passed", reasoning: "", submittedContent: FIXED },
     ]);
     expect(create).toHaveBeenCalledTimes(2);
+  }, 15_000);
+
+  it("calls onIteration synchronously as each attempt is graded, before the loop continues", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(toolUseResponse("call_1", BUGGY))
+      .mockResolvedValueOnce(toolUseResponse("call_2", FIXED));
+    const client: MessagesClient = { messages: { create } };
+    const seen: Array<{ iteration: number; passed: boolean }> = [];
+
+    const result = await runAgentLoop(sumRangeChallenge, { apiKey: "unused" }, client, (entry) => {
+      seen.push({ iteration: entry.iteration, passed: entry.passed });
+    });
+
+    expect(seen).toEqual([
+      { iteration: 1, passed: false },
+      { iteration: 2, passed: true },
+    ]);
+    expect(result.transcript).toHaveLength(2);
   }, 15_000);
 
   it("stops at the turn budget without ever passing", async () => {

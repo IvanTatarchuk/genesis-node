@@ -5,9 +5,11 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { challengeList } from "@/challenges";
 import { storeClaimToken } from "@/lib/claimToken";
+import { calculateReward } from "@/lib/economy";
 import {
   DEFAULT_ITERATIONS,
   DEFAULT_MODEL,
+  loadoutMultiplier,
   MAX_ITERATIONS,
   MIN_ITERATIONS,
   MODELS,
@@ -103,6 +105,13 @@ export default function HomePage() {
   const selectedModel = useMemo(
     () => MODELS.find((m) => m.id === model) ?? MODELS[0]!,
     [model]
+  );
+
+  // What a clean one-shot pass on the current loadout would pay — makes both
+  // multipliers (model + budget) concrete before the player commits.
+  const oneShotReward = useMemo(
+    () => calculateReward(true, 1, loadoutMultiplier({ model, maxIterations })),
+    [model, maxIterations]
   );
 
   async function handleSubmit(event: FormEvent) {
@@ -222,10 +231,14 @@ export default function HomePage() {
               style={{ display: "block", width: "100%" }}
             />
             <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
-              How many times the agent may test-and-revise. A one-shot pass earns the most shards;
-              each extra attempt tapers the reward.
+              How many times the agent may test-and-revise. Fewer reserved attempts is the bolder
+              loadout — a miss means no retries — so a tighter budget pays more, on top of the
+              per-attempt taper.
             </span>
           </label>
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>
+            A clean one-shot pass on this loadout earns <strong>{oneShotReward}</strong> shards.
+          </p>
         </fieldset>
 
         <button type="submit" disabled={status === "running"}>

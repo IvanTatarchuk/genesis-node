@@ -10,18 +10,23 @@ This is the "crawl" phase of the plan: prove the core loop works before
 investing in live streaming, cosmetics/monetization, or a real challenge
 catalog. What exists right now:
 
-- Four real challenges (`challenges/*.ts`) of increasing difficulty —
+- Five real challenges (`challenges/*.ts`) of increasing difficulty —
   `sum-range` (off-by-one loop bound), `reverse-words` (wrong granularity:
   reverses characters instead of word order), `is-palindrome` (missing
   non-alphanumeric filtering, so it fails on real-world input with
   punctuation/spaces), `binary-search` (off-by-one lower bound that makes the
   first element unfindable — chosen carefully: an earlier off-by-one variant
   turned out to never actually produce a wrong answer for any test case, so
-  it was rejected). Each graded by Node's built-in test runner (zero
+  it was rejected), and `merge-intervals` — the first deliberately *harder*
+  one: two independent bugs (it assumes sorted input AND uses a strict
+  overlap check that misses intervals touching at an endpoint), so patching
+  either alone still fails. Each graded by Node's built-in test runner (zero
   dependencies needed at grading time, since the sandbox blocks network
   access), and each has an automated self-check
   (`tests/challenges.test.ts`) proving the unmodified bug actually fails and
-  a known-correct fix actually passes — not just asserted by eye.
+  a known-correct fix actually passes — not just asserted by eye. For
+  `merge-intervals` the self-check goes further: it proves each *partial* fix
+  still fails, so the two-bug design can't quietly degrade into a one-liner.
 - A sandboxed runner (`lib/sandbox.ts`, `lib/runner.ts`) — same isolation
   strategy validated in [mcp-guard](https://github.com/IvanTatarchuk/MyBotAI_Updates):
   pure `unshare` (no Docker/bubblewrap), network-isolated, filesystem
@@ -118,15 +123,22 @@ npm run build   # full Next.js production build
   those tests, not mocked — only the model call is faked.
 - **Shard economy**: passing a run earns "shards" via `lib/economy.ts`
   (`calculateReward` — full reward for a one-shot pass, tapering per extra
-  iteration, floored at a minimum, then scaled by the loadout's model
-  multiplier). The model multiplier lives in the loadout catalog
-  (`lib/loadouts.ts`, `rewardMultiplier`): the strongest model is the 1.0
-  baseline and weaker/cheaper models pay *more* (Haiku 4.5 ×1.5, Sonnet 5
-  ×1.25), so clearing a challenge with less firepower — the harder, riskier
-  play — is worth more. This is what gives the model half of the loadout a real
-  cost instead of "always pick the strongest". The floor scales with the
-  multiplier too, so a hard-won pass on a weak model still beats a hard-won pass
-  on the strongest one. Shards are credited through the atomic
+  iteration, floored at a minimum, then scaled by the whole loadout's
+  multiplier). That multiplier lives in the loadout catalog (`lib/loadouts.ts`,
+  `loadoutMultiplier`) and is the product of two independent risk/reward knobs:
+  the **model** (`rewardMultiplier` — strongest model is the 1.0 baseline,
+  weaker/cheaper models pay more: Haiku 4.5 ×1.5, Sonnet 5 ×1.25) and the
+  **declared attempt budget** (`budgetMultiplier` — a tight budget is the bolder
+  play, since a miss means no retries and zero reward, so it pays up to
+  `TIGHT_BUDGET_BONUS` ×1.3 at a single attempt, tapering to ×1.0 at the widest
+  budget). Together they turn both halves of the loadout into a real
+  cost/benefit choice instead of "always pick the strongest model and the widest
+  safety net"; the home page shows the resulting one-shot payout live as you
+  adjust the loadout. The floor scales with the multiplier too, so a hard-won
+  pass on a lean loadout still beats one on a maxed-out loadout. Note the two
+  budget effects are distinct: `budgetMultiplier` prices the *declared* budget
+  up front (a loadout choice), while the per-iteration taper prices the attempts
+  *actually used* (execution efficiency). Shards are credited through the atomic
   `award_shards()` Postgres function and spent only on cosmetics
   (`lib/cosmetics.ts`, bought/equipped via `purchase_cosmetic()`/
   `equip_cosmetic()`, see `supabase/schema.sql`). There is no cashout path
@@ -170,8 +182,10 @@ npm run build   # full Next.js production build
 ## Roadmap (see `docs/` in the mcp-guard repo's `IDEAS_BACKLOG.md` for the
 original design discussion)
 
-- [x] More challenges beyond the first one-line bug (still all single-file,
-      single-bug — genuinely harder/multi-file challenges are still open)
+- [x] More challenges beyond the first one-line bug, now including a
+      genuinely harder multi-bug one (`merge-intervals`). Still single-file:
+      true multi-*file* challenges are open, and would need the agent loop's
+      `test_solution` tool to accept a map of files rather than one blob.
 - [x] Multi-turn / tool-use agent loop instead of single-shot
 - [x] Live streaming of the agent's reasoning while it runs
 - [x] Cosmetics/skins economy (no cashout, no wagering — see design notes)
@@ -179,11 +193,11 @@ original design discussion)
       the known cgroups gap above before exposing this beyond trusted users)
 - [x] Player-chosen loadout (model + attempt budget), validated server-side
       against a curated catalog (`lib/loadouts.ts`)
-- [x] Loadout priced into the economy: the model choice scales the shard
-      reward (weaker model → higher multiplier), so it's a real risk/reward
-      tradeoff, not a free "always pick the strongest". Still open: pricing the
-      *attempt budget* the same way (a wide budget is currently only penalized
-      by the per-iteration taper, not by the loadout itself)
+- [x] Loadout priced into the economy: both the model choice *and* the
+      declared attempt budget scale the shard reward (weaker model → higher
+      multiplier; tighter budget → higher multiplier), so the whole loadout is
+      a real risk/reward tradeoff, not a free "always pick the strongest model
+      and the widest safety net"
 
 ## License
 

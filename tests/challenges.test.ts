@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { binarySearchChallenge } from "../challenges/binary-search";
 import { isPalindromeChallenge } from "../challenges/is-palindrome";
+import { mergeIntervalsChallenge } from "../challenges/merge-intervals";
 import { reverseWordsChallenge } from "../challenges/reverse-words";
 import type { Challenge } from "../lib/challenge";
 import { runChallenge } from "../lib/runner";
@@ -62,6 +63,29 @@ const cases: Array<{ challenge: Challenge; correctFix: string }> = [
       "",
     ].join("\n"),
   },
+  {
+    challenge: mergeIntervalsChallenge,
+    correctFix: [
+      "function mergeIntervals(intervals) {",
+      "  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);",
+      "  const merged = [];",
+      "",
+      "  for (const [start, end] of sorted) {",
+      "    const last = merged[merged.length - 1];",
+      "    if (last && start <= last[1]) {",
+      "      last[1] = Math.max(last[1], end);",
+      "    } else {",
+      "      merged.push([start, end]);",
+      "    }",
+      "  }",
+      "",
+      "  return merged;",
+      "}",
+      "",
+      "module.exports = { mergeIntervals };",
+      "",
+    ].join("\n"),
+  },
 ];
 
 describe.each(cases)("challenge: $challenge.id", ({ challenge, correctFix }) => {
@@ -73,5 +97,58 @@ describe.each(cases)("challenge: $challenge.id", ({ challenge, correctFix }) => 
   it("a correct fix passes", async () => {
     const result = await runChallenge(challenge, correctFix);
     expect(result.passed).toBe(true);
+  }, 15_000);
+});
+
+/**
+ * merge-intervals is deliberately a two-bug challenge. Prove it actually is:
+ * each *partial* fix (only the sort, or only the touching-interval comparison)
+ * must still fail. If either partial fix ever starts passing, the challenge has
+ * quietly degraded into a one-line bug and this guard should catch it.
+ */
+describe("challenge: merge-intervals is genuinely two independent bugs", () => {
+  const sortOnly = [
+    "function mergeIntervals(intervals) {",
+    "  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);",
+    "  const merged = [];",
+    "  for (const [start, end] of sorted) {",
+    "    const last = merged[merged.length - 1];",
+    "    if (last && start < last[1]) {", // still strict — misses touching intervals
+    "      last[1] = Math.max(last[1], end);",
+    "    } else {",
+    "      merged.push([start, end]);",
+    "    }",
+    "  }",
+    "  return merged;",
+    "}",
+    "module.exports = { mergeIntervals };",
+    "",
+  ].join("\n");
+
+  const comparisonOnly = [
+    "function mergeIntervals(intervals) {",
+    "  const merged = [];",
+    "  for (const [start, end] of intervals) {", // no sort — misses unordered input
+    "    const last = merged[merged.length - 1];",
+    "    if (last && start <= last[1]) {",
+    "      last[1] = Math.max(last[1], end);",
+    "    } else {",
+    "      merged.push([start, end]);",
+    "    }",
+    "  }",
+    "  return merged;",
+    "}",
+    "module.exports = { mergeIntervals };",
+    "",
+  ].join("\n");
+
+  it("fixing only the sort still fails", async () => {
+    const result = await runChallenge(mergeIntervalsChallenge, sortOnly);
+    expect(result.passed).toBe(false);
+  }, 15_000);
+
+  it("fixing only the touching-interval comparison still fails", async () => {
+    const result = await runChallenge(mergeIntervalsChallenge, comparisonOnly);
+    expect(result.passed).toBe(false);
   }, 15_000);
 });

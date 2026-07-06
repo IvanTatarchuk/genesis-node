@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { runAgentLoop } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
-import { rewardMultiplier, validateLoadout } from "@/lib/loadouts";
+import { loadoutMultiplier, validateLoadout } from "@/lib/loadouts";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -84,7 +84,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const reward = calculateReward(
     finalResult.passed,
     iterations,
-    rewardMultiplier(loadout.loadout.model)
+    loadoutMultiplier(loadout.loadout)
   );
   let shardBalance: number | null = null;
   let claimToken: string | null = null;

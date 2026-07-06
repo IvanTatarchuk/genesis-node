@@ -71,6 +71,18 @@ export const MIN_ITERATIONS = 1;
 export const MAX_ITERATIONS = 8;
 export const DEFAULT_ITERATIONS = 5;
 
+/**
+ * The reward multiplier at the tightest possible budget (MIN_ITERATIONS). The
+ * widest budget (MAX_ITERATIONS) is the 1.0 baseline, and everything in between
+ * interpolates linearly. Reserving fewer attempts is the bolder loadout — a
+ * miss means no retries and zero reward — so committing to a tight budget is
+ * worth more, the same risk/reward logic as the model multiplier. This is the
+ * *declared* budget, independent of the per-iteration taper on attempts
+ * actually used (lib/economy.ts): the taper rewards efficient execution, this
+ * rewards a confident loadout.
+ */
+export const TIGHT_BUDGET_BONUS = 1.3;
+
 export interface ValidatedLoadout {
   model: string;
   maxIterations: number;
@@ -124,4 +136,24 @@ export function modelLabel(id: string): string {
  * for an unknown/legacy id so an old model string can never inflate a reward. */
 export function rewardMultiplier(id: string): number {
   return MODELS.find((m) => m.id === id)?.rewardMultiplier ?? 1;
+}
+
+/**
+ * The reward multiplier for a declared attempt budget: TIGHT_BUDGET_BONUS at
+ * MIN_ITERATIONS, tapering linearly to 1.0 at MAX_ITERATIONS. Clamped so a
+ * budget outside the bounds can't push the multiplier past either end (the
+ * routes validate the budget first, but this stays honest if called directly).
+ */
+export function budgetMultiplier(maxIterations: number): number {
+  const clamped = Math.min(MAX_ITERATIONS, Math.max(MIN_ITERATIONS, maxIterations));
+  const span = MAX_ITERATIONS - MIN_ITERATIONS;
+  if (span === 0) return 1;
+  const t = (clamped - MIN_ITERATIONS) / span; // 0 at tightest, 1 at widest
+  return TIGHT_BUDGET_BONUS + t * (1 - TIGHT_BUDGET_BONUS);
+}
+
+/** The combined shard multiplier for a full loadout — model choice × attempt
+ * budget. This is the single number the economy applies to a passing run. */
+export function loadoutMultiplier(loadout: ValidatedLoadout): number {
+  return rewardMultiplier(loadout.model) * budgetMultiplier(loadout.maxIterations);
 }

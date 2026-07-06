@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  budgetMultiplier,
   DEFAULT_ITERATIONS,
   DEFAULT_MODEL,
+  loadoutMultiplier,
   MAX_ITERATIONS,
   MIN_ITERATIONS,
   MODELS,
   modelLabel,
   rewardMultiplier,
+  TIGHT_BUDGET_BONUS,
   validateLoadout,
 } from "../lib/loadouts";
 
@@ -93,5 +96,40 @@ describe("rewardMultiplier", () => {
 
   it("falls back to 1.0 for an unknown/legacy model so it can't inflate a reward", () => {
     expect(rewardMultiplier("claude-sonnet-4-5")).toBe(1);
+  });
+});
+
+describe("budgetMultiplier", () => {
+  it("pays the tight-budget bonus at the minimum budget", () => {
+    expect(budgetMultiplier(MIN_ITERATIONS)).toBeCloseTo(TIGHT_BUDGET_BONUS);
+  });
+
+  it("is the 1.0 baseline at the maximum budget", () => {
+    expect(budgetMultiplier(MAX_ITERATIONS)).toBeCloseTo(1);
+  });
+
+  it("decreases monotonically as the budget widens", () => {
+    for (let b = MIN_ITERATIONS; b < MAX_ITERATIONS; b++) {
+      expect(budgetMultiplier(b)).toBeGreaterThan(budgetMultiplier(b + 1));
+    }
+  });
+
+  it("clamps a budget outside the bounds instead of overshooting", () => {
+    expect(budgetMultiplier(MIN_ITERATIONS - 5)).toBeCloseTo(TIGHT_BUDGET_BONUS);
+    expect(budgetMultiplier(MAX_ITERATIONS + 5)).toBeCloseTo(1);
+  });
+});
+
+describe("loadoutMultiplier", () => {
+  it("is the product of the model and budget multipliers", () => {
+    const model = "claude-haiku-4-5";
+    const maxIterations = MIN_ITERATIONS;
+    expect(loadoutMultiplier({ model, maxIterations })).toBeCloseTo(
+      rewardMultiplier(model) * budgetMultiplier(maxIterations)
+    );
+  });
+
+  it("is 1.0 for the strongest model at the widest budget", () => {
+    expect(loadoutMultiplier({ model: "claude-opus-4-8", maxIterations: MAX_ITERATIONS })).toBeCloseTo(1);
   });
 });

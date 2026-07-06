@@ -11,6 +11,7 @@ import {
   DEFAULT_MODEL,
   loadoutMultiplier,
   MAX_ITERATIONS,
+  MAX_STRATEGY_LENGTH,
   MIN_ITERATIONS,
   MODELS,
 } from "@/lib/loadouts";
@@ -85,6 +86,7 @@ export default function HomePage() {
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [maxIterations, setMaxIterations] = useState(DEFAULT_ITERATIONS);
+  const [strategy, setStrategy] = useState("");
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [liveIterations, setLiveIterations] = useState<LiveIteration[]>([]);
   const [done, setDone] = useState<DonePayload | null>(null);
@@ -124,7 +126,7 @@ export default function HomePage() {
     const res = await fetch("/api/runs/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeId, playerName, apiKey, model, maxIterations }),
+      body: JSON.stringify({ challengeId, playerName, apiKey, model, maxIterations, strategy }),
     });
 
     const contentType = res.headers.get("content-type") ?? "";
@@ -234,6 +236,22 @@ export default function HomePage() {
               How many times the agent may test-and-revise. Fewer reserved attempts is the bolder
               loadout — a miss means no retries — so a tighter budget pays more, on top of the
               per-attempt taper.
+            </span>
+          </label>
+          <label>
+            Agent strategy (optional)
+            <textarea
+              rows={3}
+              maxLength={MAX_STRATEGY_LENGTH}
+              value={strategy}
+              onChange={(e) => setStrategy(e.target.value)}
+              placeholder="Coach the agent — e.g. &quot;Read the failing test first, then look for off-by-one bounds and unhandled edge cases before changing anything.&quot;"
+              style={{ display: "block", width: "100%", fontFamily: "inherit" }}
+            />
+            <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+              Guidance on <em>how</em> to attack the bug, not the answer — this becomes the agent&apos;s
+              system prompt. A sharper strategy is the real skill here. {strategy.length}/
+              {MAX_STRATEGY_LENGTH}
             </span>
           </label>
           <p style={{ margin: 0, fontSize: "0.9rem" }}>

@@ -17,6 +17,7 @@ interface SubmitRunBody {
   apiKey?: string;
   model?: string;
   maxIterations?: number;
+  strategy?: string;
 }
 
 /**
@@ -32,7 +33,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const { challengeId, playerName, apiKey, model, maxIterations } = body;
+  const { challengeId, playerName, apiKey, model, maxIterations, strategy } = body;
   if (!challengeId || !playerName || !apiKey) {
     return NextResponse.json(
       { error: "challengeId, playerName, and apiKey are all required" },
@@ -40,7 +41,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const loadout = validateLoadout({ model, maxIterations });
+  const loadout = validateLoadout({ model, maxIterations, strategy });
   if (!loadout.ok) {
     return NextResponse.json({ error: loadout.error }, { status: 400 });
   }

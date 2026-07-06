@@ -6,6 +6,7 @@ import {
   DEFAULT_MODEL,
   loadoutMultiplier,
   MAX_ITERATIONS,
+  MAX_STRATEGY_LENGTH,
   MIN_ITERATIONS,
   MODELS,
   modelLabel,
@@ -74,6 +75,34 @@ describe("validateLoadout", () => {
   it("rejects a non-integer attempt budget rather than silently flooring it", () => {
     expect(validateLoadout({ maxIterations: 2.5 }).ok).toBe(false);
     expect(validateLoadout({ maxIterations: Number.NaN }).ok).toBe(false);
+  });
+
+  it("has no strategy by default", () => {
+    const result = validateLoadout({});
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.loadout.strategy).toBeUndefined();
+  });
+
+  it("keeps a within-bounds strategy, trimmed", () => {
+    const result = validateLoadout({ strategy: "  read the failing test first  " });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.loadout.strategy).toBe("read the failing test first");
+  });
+
+  it("treats a blank/whitespace strategy as none", () => {
+    const result = validateLoadout({ strategy: "   \n  " });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.loadout.strategy).toBeUndefined();
+  });
+
+  it("rejects a strategy longer than the cap", () => {
+    const result = validateLoadout({ strategy: "x".repeat(MAX_STRATEGY_LENGTH + 1) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/strategy/);
+  });
+
+  it("accepts a strategy exactly at the cap", () => {
+    expect(validateLoadout({ strategy: "x".repeat(MAX_STRATEGY_LENGTH) }).ok).toBe(true);
   });
 });
 

@@ -9,6 +9,13 @@ export interface LoadoutConfig {
   maxTokens?: number;
   /** Turn budget: how many times the agent may call test_solution before we stop. */
   maxIterations?: number;
+  /**
+   * Optional player-authored guidance on *how* to attack the bug, handed to the
+   * agent as its system prompt. This is what turns the loadout from "pick a
+   * model" into a game of skill — the player is coaching the agent. Bounded by
+   * lib/loadouts.ts so it stays guidance, not a pasted answer.
+   */
+  strategy?: string;
 }
 
 export interface TranscriptEntry {
@@ -150,6 +157,21 @@ function buildInitialPrompt(challenge: Challenge, maxIterations: number): string
   );
 }
 
+/**
+ * Wrap a player's strategy into the agent's system prompt. Frames it as
+ * coaching ("how to work, not the answer") so the model treats it as method
+ * rather than a solution to echo — the honest counterpart to the length cap in
+ * lib/loadouts.ts.
+ */
+function buildStrategySystem(strategy: string): string {
+  return (
+    "You are an expert debugging agent competing in Agent Arena. A player has given you a " +
+    "strategy to follow — apply it as you diagnose and fix the code. It is guidance on how to " +
+    "work, not the answer itself.\n\n" +
+    `Player strategy:\n${strategy}`
+  );
+}
+
 function isToolUseBlock(block: Anthropic.ContentBlock): block is Anthropic.ToolUseBlock {
   return block.type === "tool_use";
 }
@@ -188,6 +210,7 @@ export async function runAgentLoop(
 
   const editable = editableFiles(challenge);
   const tool = buildTestSolutionTool(editable);
+  const system = loadout.strategy ? buildStrategySystem(loadout.strategy) : undefined;
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildInitialPrompt(challenge, maxIterations) },
@@ -198,7 +221,13 @@ export async function runAgentLoop(
   let iterations = 0;
 
   while (iterations < maxIterations) {
-    const response = await client.messages.create({ model, max_tokens: maxTokens, tools: [tool], messages });
+    const response = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      ...(system ? { system } : {}),
+      tools: [tool],
+      messages,
+    });
 
     const toolUse = response.content.find(isToolUseBlock);
     if (!toolUse) {

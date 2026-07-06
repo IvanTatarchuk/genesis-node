@@ -13,6 +13,7 @@ interface SubmitRunBody {
   apiKey?: string;
   model?: string;
   maxIterations?: number;
+  strategy?: string;
 }
 
 function sseEvent(event: string, data: unknown): Uint8Array {
@@ -35,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: "invalid JSON body" }), { status: 400 });
   }
 
-  const { challengeId, playerName, apiKey, model, maxIterations } = body;
+  const { challengeId, playerName, apiKey, model, maxIterations, strategy } = body;
   if (!challengeId || !playerName || !apiKey) {
     return new Response(
       JSON.stringify({ error: "challengeId, playerName, and apiKey are all required" }),
@@ -43,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const loadout = validateLoadout({ model, maxIterations });
+  const loadout = validateLoadout({ model, maxIterations, strategy });
   if (!loadout.ok) {
     return new Response(JSON.stringify({ error: loadout.error }), { status: 400 });
   }

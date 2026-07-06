@@ -64,15 +64,32 @@ catalog. What exists right now:
   programmatic/non-UI callers.
 - A real, validated loadout (`lib/loadouts.ts`) — the "model + budget" the
   pitch is built around, now actually chosen by the player instead of always
-  defaulting server-side. A curated model catalog (Opus 4.8 / Sonnet 5 /
-  Haiku 4.5 — each a real id the player's own key can call) and a bounded
-  attempt budget are the single source of truth for both the UI picker and
-  the server: `validateLoadout` rejects an unknown model or an out-of-range
-  budget with a `400` before any work runs, so a typo can't 404 deep in the
-  agent call or land a bogus model string on the public leaderboard, and a
-  direct caller can't pass `maxIterations: 10000` and tie up a request (each
-  attempt is a real sandboxed grading run plus a real model call) for the whole
-  `maxDuration` window. Unit-tested in `tests/loadouts.test.ts`.
+  defaulting server-side, **plus an optional agent strategy**. A curated model
+  catalog (Opus 4.8 / Sonnet 5 / Haiku 4.5 — each a real id the player's own
+  key can call), a bounded attempt budget, and a bounded strategy string are
+  the single source of truth for both the UI picker and the server:
+  `validateLoadout` rejects an unknown model, an out-of-range budget, or an
+  over-long strategy with a `400` before any work runs, so a typo can't 404
+  deep in the agent call or land a bogus model string on the public
+  leaderboard, and a direct caller can't pass `maxIterations: 10000` and tie up
+  a request (each attempt is a real sandboxed grading run plus a real model
+  call) for the whole `maxDuration` window. Unit-tested in
+  `tests/loadouts.test.ts`.
+- **Agent strategy — the skill layer.** The strategy is optional player-written
+  guidance on *how* to attack the bug (e.g. "read the failing test first, then
+  look for off-by-one bounds"), injected as the agent's system prompt
+  (`lib/agentLoop.ts`) — but only when given, so runs without one are unchanged.
+  This is the deliberate turn from "pick the strongest model" (a gacha) toward
+  "coach a better debugger" (a game of skill): the model is a knob, the strategy
+  is craft. It's capped (`MAX_STRATEGY_LENGTH`) so it stays *guidance*, not a
+  place to paste the finished answer — a real fix for a multi-file challenge
+  won't fit, and the framing tells the model it's method, not the solution. The
+  wiring (strategy present → `system` set; absent → omitted) is verified in
+  `tests/agentLoop.test.ts` with a mock client, so it's covered even where the
+  sandbox can't run (CI). The natural next step is to score a *strategy* across
+  held-out challenges — rewarding one that generalizes, which a pasted answer
+  can't — turning any "solve it in another window" into fair theorycraft rather
+  than a way to cheat.
 - Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
   budget — watch attempts arrive live, shows final attempt count),
   `/leaderboard?challenge=<id>` (per-challenge, with links to switch between

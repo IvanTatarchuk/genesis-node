@@ -72,6 +72,15 @@ export const MAX_ITERATIONS = 8;
 export const DEFAULT_ITERATIONS = 5;
 
 /**
+ * Max length of a player's agent strategy, in characters. Bounded on purpose:
+ * a strategy is *guidance on how to attack the bug*, not a place to paste the
+ * finished solution — a tight cap keeps it that way (a real fix for a
+ * multi-file challenge won't fit) and turns the loadout into a game of skill
+ * ("write a better debugging strategy") rather than "pick the strongest model".
+ */
+export const MAX_STRATEGY_LENGTH = 2000;
+
+/**
  * The reward multiplier at the tightest possible budget (MIN_ITERATIONS). The
  * widest budget (MAX_ITERATIONS) is the 1.0 baseline, and everything in between
  * interpolates linearly. Reserving fewer attempts is the bolder loadout — a
@@ -86,6 +95,8 @@ export const TIGHT_BUDGET_BONUS = 1.3;
 export interface ValidatedLoadout {
   model: string;
   maxIterations: number;
+  /** Optional player-authored guidance handed to the agent (see MAX_STRATEGY_LENGTH). */
+  strategy?: string;
 }
 
 export type LoadoutValidation =
@@ -94,14 +105,16 @@ export type LoadoutValidation =
 
 /**
  * Resolve and validate a caller-supplied loadout. Missing fields fall back to
- * the defaults; an unknown model or an out-of-range attempt budget is rejected
- * (so the route can return a 400) rather than silently coerced — a bogus model
- * would fail confusingly deep in the agent call, and a silently-clamped budget
- * would mislead the caller about what actually ran.
+ * the defaults; an unknown model, an out-of-range attempt budget, or an
+ * over-long strategy is rejected (so the route can return a 400) rather than
+ * silently coerced — a bogus model would fail confusingly deep in the agent
+ * call, and a silently-clamped budget/strategy would mislead the caller about
+ * what actually ran.
  */
 export function validateLoadout(input: {
   model?: string;
   maxIterations?: number;
+  strategy?: string;
 }): LoadoutValidation {
   const model = input.model ?? DEFAULT_MODEL;
   if (!MODELS.some((m) => m.id === model)) {
@@ -122,7 +135,24 @@ export function validateLoadout(input: {
     };
   }
 
-  return { ok: true, loadout: { model, maxIterations } };
+  let strategy: string | undefined;
+  if (input.strategy !== undefined) {
+    if (typeof input.strategy !== "string") {
+      return { ok: false, error: "strategy must be a string" };
+    }
+    if (input.strategy.length > MAX_STRATEGY_LENGTH) {
+      return {
+        ok: false,
+        error: `strategy must be at most ${MAX_STRATEGY_LENGTH} characters`,
+      };
+    }
+    // An empty/whitespace strategy is the same as none — don't send a blank
+    // system prompt.
+    const trimmed = input.strategy.trim();
+    if (trimmed) strategy = trimmed;
+  }
+
+  return { ok: true, loadout: { model, maxIterations, strategy } };
 }
 
 /** Leaderboard/UI display: the friendly label for a recorded model id, or the

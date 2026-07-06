@@ -170,3 +170,32 @@ describe.skipIf(!sandboxUsable())("runAgentLoop", () => {
     expect(create).toHaveBeenCalledTimes(2);
   }, 20_000);
 });
+
+// Not gated on the sandbox: these only assert what the model was *asked*, on the
+// first create call — which happens before any grading — so they verify the
+// strategy → system-prompt wiring even where the sandbox is unusable (CI).
+describe("runAgentLoop strategy → system prompt", () => {
+  it("passes the player's strategy as the system prompt when one is given", async () => {
+    const create = vi.fn().mockResolvedValue(toolUseResponse("call_1", FIXED));
+    const client: MessagesClient = { messages: { create } };
+
+    await runAgentLoop(
+      sumRangeChallenge,
+      { apiKey: "unused", strategy: "focus on off-by-one bounds", maxIterations: 1 },
+      client
+    );
+
+    const params = create.mock.calls[0]![0] as { system?: string };
+    expect(params.system).toContain("focus on off-by-one bounds");
+  }, 15_000);
+
+  it("omits the system prompt entirely when no strategy is given", async () => {
+    const create = vi.fn().mockResolvedValue(toolUseResponse("call_1", FIXED));
+    const client: MessagesClient = { messages: { create } };
+
+    await runAgentLoop(sumRangeChallenge, { apiKey: "unused", maxIterations: 1 }, client);
+
+    const params = create.mock.calls[0]![0] as { system?: string };
+    expect(params.system).toBeUndefined();
+  }, 15_000);
+});

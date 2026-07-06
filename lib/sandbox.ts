@@ -10,7 +10,27 @@
  *   /proc/self/mountinfo, not just `/`) — covers separately-mounted
  *   filesystems too, not only whatever's mounted at the working directory.
  * - `/tmp` is a fresh tmpfs — real, writable scratch space.
- * - `--pid` + `--mount-proc`: separate process namespace.
+ * - `--pid` + `--mount-proc`: separate process namespace. This also bounds a
+ *   fork bomb's *lifetime*: when the sandboxed process is killed (e.g. by
+ *   lib/runner.ts's execFile timeout), the kernel tears down the whole pid
+ *   namespace and every process in it dies with it — nothing survives past
+ *   the timeout as an orphan.
+ *
+ * Known gap: this does NOT bound a fork bomb's resource usage *during* that
+ * window. `ulimit -p`/`-u` (RLIMIT_NPROC) was tried and does not help here —
+ * everything in this container runs as root, and Linux exempts
+ * CAP_SYS_RESOURCE processes from RLIMIT_NPROC entirely (verified: setting
+ * `ulimit -p 64` and then forking 200 processes succeeded outright). A real
+ * fix needs cgroups (pids/memory controllers) applied from outside this
+ * process — e.g. `--pids-limit`/`--memory` if this app is itself deployed in
+ * a container — which is why lib/challengeSource.ts additionally restricts
+ * what a player-authored testCommand is allowed to be, rather than accepting
+ * arbitrary shell.
+ *   Built-in challenges never needed this (their test commands are
+ *   hand-written by us), but player-authored challenges bring their own
+ *   test command, so a fork-bomb-style resource exhaustion is now a real
+ *   input, not just a theoretical one — bounded here, on top of the 30s
+ *   execFile timeout in lib/runner.ts.
  *
  * Unlike mcp-guard's probe (which only needs *a* scratch space), a challenge
  * run needs the sandbox pre-seeded with the challenge's starter files. Since
@@ -28,6 +48,7 @@ export class SandboxUnavailable extends Error {}
 
 const FS_ISOLATION_SCRIPT = String.raw`
 set -e
+ulimit -p 64
 mount --make-rprivate /
 mount --bind / /
 mount -o remount,bind,ro /

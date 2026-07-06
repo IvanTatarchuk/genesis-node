@@ -27,6 +27,27 @@ export interface Player {
   active_cosmetic_id: string | null;
 }
 
+export interface ChallengeRow {
+  slug: string;
+  author_name: string;
+  title: string;
+  prompt: string;
+  files: Record<string, string>;
+  solution_file: string;
+  test_command: string[];
+  status: "pending" | "approved" | "rejected";
+}
+
+interface ChallengeSubmission {
+  slug: string;
+  authorName: string;
+  title: string;
+  prompt: string;
+  files: Record<string, string>;
+  solutionFile: string;
+  testCommand: string[];
+}
+
 let serverClient: SupabaseClient | undefined;
 
 /**
@@ -152,4 +173,76 @@ export async function fetchOwnedCosmeticIds(playerName: string): Promise<string[
   }
 
   return (data ?? []).map((row) => row.cosmetic_id as string);
+}
+
+/**
+ * Inserts a player-authored challenge as `status: 'pending'` — it isn't
+ * listed or runnable by anyone but its own author until a moderator approves
+ * it (see moderateChallenge). Shape validation (slug format, testCommand
+ * safelist, etc.) happens in lib/challengeSource.ts before this is called.
+ */
+export async function insertChallengeSubmission(input: ChallengeSubmission): Promise<string> {
+  const { error } = await getServerSupabaseClient().from("challenges").insert({
+    slug: input.slug,
+    author_name: input.authorName,
+    title: input.title,
+    prompt: input.prompt,
+    files: input.files,
+    solution_file: input.solutionFile,
+    test_command: input.testCommand,
+  });
+
+  if (error) {
+    throw new Error(`failed to submit challenge: ${error.message}`);
+  }
+
+  return input.slug;
+}
+
+export async function fetchApprovedChallenges(): Promise<ChallengeRow[]> {
+  const { data, error } = await getServerSupabaseClient()
+    .from("challenges")
+    .select("slug, author_name, title, prompt, files, solution_file, test_command, status")
+    .eq("status", "approved")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`failed to fetch challenges: ${error.message}`);
+  }
+
+  return data ?? [];
+}
+
+export async function fetchChallengeBySlug(slug: string): Promise<ChallengeRow | null> {
+  const { data, error } = await getServerSupabaseClient()
+    .from("challenges")
+    .select("slug, author_name, title, prompt, files, solution_file, test_command, status")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`failed to fetch challenge: ${error.message}`);
+  }
+
+  return data ?? null;
+}
+
+/**
+ * Approve or reject a pending submission. Restricted to callers who know
+ * ADMIN_SECRET (see app/api/challenges/[id]/moderate/route.ts) — there is no
+ * broader moderator role system yet, this is deliberately the simplest thing
+ * that lets a submission ever leave 'pending'.
+ */
+export async function moderateChallenge(
+  slug: string,
+  status: "approved" | "rejected"
+): Promise<void> {
+  const { error } = await getServerSupabaseClient()
+    .from("challenges")
+    .update({ status })
+    .eq("slug", slug);
+
+  if (error) {
+    throw new Error(`failed to update challenge status: ${error.message}`);
+  }
 }

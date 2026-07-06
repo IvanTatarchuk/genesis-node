@@ -113,6 +113,27 @@ npm run build   # full Next.js production build
   anywhere in the schema — shards flow in from playing and out on cosmetics,
   never back to real money. `/shop` is the buy/equip UI; the leaderboard
   shows each player's equipped cosmetic next to their name.
+- **Player-authored challenges**: submitted at `/challenges/submit`
+  (`lib/challengeSource.ts`), stored in the `challenges` table as
+  `status: 'pending'`, and invisible to anyone but their author until a
+  moderator approves them via `POST /api/challenges/[slug]/moderate`
+  (gated by the `ADMIN_SECRET` env var — no broader moderator-role system
+  exists yet). A challenge's `testCommand` runs inside the sandbox for every
+  player who attempts it, so it's deliberately not free-form shell:
+  `validateSubmission` only accepts `["node", "--test", "<a file the author
+  submitted>"]`, the same shape the built-in challenges use. The author earns
+  a flat shard reward (`calculateAuthorReward`) each time someone else's run
+  against their challenge passes — this is the "revenue share," paid in the
+  same no-cashout virtual currency as everything else.
+  - Known gap: a fork-bomb-style test file can still exhaust CPU/process
+    table for the ~30s grading window even inside the sandbox — `ulimit
+    -p`/`-u` (RLIMIT_NPROC) does not help here because everything runs as
+    root, and Linux exempts `CAP_SYS_RESOURCE` processes from that limit
+    entirely (verified empirically, see `lib/sandbox.ts`'s docstring). A real
+    fix needs cgroups applied from *outside* this process (e.g. a
+    `--pids-limit`/`--memory` on the container this app itself runs in).
+    Until then, the moderation gate is the actual mitigation: only the
+    author's own runs execute an unapproved challenge's test command.
 
 ## Roadmap (see `docs/` in the mcp-guard repo's `IDEAS_BACKLOG.md` for the
 original design discussion)
@@ -122,7 +143,8 @@ original design discussion)
 - [x] Multi-turn / tool-use agent loop instead of single-shot
 - [x] Live streaming of the agent's reasoning while it runs
 - [x] Cosmetics/skins economy (no cashout, no wagering — see design notes)
-- [ ] Player-authored challenges with revenue share
+- [x] Player-authored challenges with revenue share (shards, not cash — see
+      the known cgroups gap above before exposing this beyond trusted users)
 
 ## License
 

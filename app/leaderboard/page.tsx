@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
-import { challengeList, getChallenge } from "@/challenges";
+import { listChallengeMetadata } from "@/lib/challengeSource";
 import { cosmetics } from "@/lib/cosmetics";
 import { fetchLeaderboard } from "@/lib/supabase";
 
@@ -12,15 +12,10 @@ interface LeaderboardPageProps {
 }
 
 export default async function LeaderboardPage({ searchParams }: LeaderboardPageProps) {
+  const allChallenges = await listChallengeMetadata();
   const { challenge: challengeIdParam } = await searchParams;
-  const challengeId = challengeIdParam ?? challengeList[0]!.id;
-
-  let challenge;
-  try {
-    challenge = getChallenge(challengeId);
-  } catch {
-    challenge = challengeList[0]!;
-  }
+  const challengeId = challengeIdParam ?? allChallenges[0]!.id;
+  const challenge = allChallenges.find((c) => c.id === challengeId) ?? allChallenges[0]!;
 
   let rows: Awaited<ReturnType<typeof fetchLeaderboard>> = [];
   let error: string | null = null;
@@ -35,11 +30,12 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
     <main style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <h1>Leaderboard</h1>
       <p>
-        <Link href="/">Back</Link> · <Link href="/shop">Shop</Link>
+        <Link href="/">Back</Link> · <Link href="/shop">Shop</Link> ·{" "}
+        <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
 
       <nav style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-        {challengeList.map((c) => (
+        {allChallenges.map((c) => (
           <Link
             key={c.id}
             href={`/leaderboard?challenge=${c.id}`}

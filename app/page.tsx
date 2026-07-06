@@ -1,9 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { challengeList } from "@/challenges";
+
+interface ChallengeMeta {
+  id: string;
+  title: string;
+  prompt: string;
+  authorName: string | null;
+}
+
+const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
+  id: c.id,
+  title: c.title,
+  prompt: c.prompt,
+  authorName: null,
+}));
 
 interface LiveIteration {
   iteration: number;
@@ -54,7 +68,8 @@ async function consumeEventStream(
 }
 
 export default function HomePage() {
-  const [challengeId, setChallengeId] = useState(challengeList[0]!.id);
+  const [challenges, setChallenges] = useState<ChallengeMeta[]>(builtInMeta);
+  const [challengeId, setChallengeId] = useState(builtInMeta[0]!.id);
   const [playerName, setPlayerName] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
@@ -62,9 +77,16 @@ export default function HomePage() {
   const [done, setDone] = useState<DonePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch("/api/challenges")
+      .then((res) => res.json())
+      .then((body: { challenges: ChallengeMeta[] }) => setChallenges(body.challenges))
+      .catch(() => undefined);
+  }, []);
+
   const challenge = useMemo(
-    () => challengeList.find((c) => c.id === challengeId) ?? challengeList[0]!,
-    [challengeId]
+    () => challenges.find((c) => c.id === challengeId) ?? challenges[0]!,
+    [challenges, challengeId]
   );
 
   async function handleSubmit(event: FormEvent) {
@@ -117,9 +139,10 @@ export default function HomePage() {
           }}
           style={{ display: "block", width: "100%", marginBottom: "0.75rem" }}
         >
-          {challengeList.map((c) => (
+          {challenges.map((c) => (
             <option key={c.id} value={c.id}>
               {c.title}
+              {c.authorName && ` (by ${c.authorName})`}
             </option>
           ))}
         </select>
@@ -198,7 +221,7 @@ export default function HomePage() {
 
       <p style={{ marginTop: "2rem" }}>
         <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link> ·{" "}
-        <Link href="/shop">Shop</Link>
+        <Link href="/shop">Shop</Link> · <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
     </main>
   );

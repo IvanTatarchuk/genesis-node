@@ -150,3 +150,44 @@ begin
   update public.players set active_cosmetic_id = p_cosmetic_id where player_name = p_player_name;
 end;
 $$ language plpgsql;
+
+-- Player-authored challenges. `slug` is the human-chosen id used everywhere
+-- a built-in challenge's `id` is (URL, run submission, leaderboard) — kept
+-- distinct from built-in ids at the application layer (lib/challengeSource.ts
+-- rejects a slug that collides with one). `test_command` is deliberately
+-- restrictive at the application layer too (only `["node", "--test", "<a
+-- file from this row's own files>"]` is accepted) — a submitted challenge's
+-- test command runs inside the sandbox for every other player who attempts
+-- it, so it is not treated as free-form shell.
+create table if not exists public.challenges (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  author_name text not null,
+  title text not null,
+  prompt text not null,
+  files jsonb not null,
+  solution_file text not null,
+  test_command text[] not null,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists challenges_status_idx on public.challenges (status);
+
+alter table public.challenges enable row level security;
+
+-- Public read is scoped to approved challenges only, matching the pattern of
+-- the other publicly-readable tables above (none of them are queried with
+-- the anon key today — every read goes through the service-role server
+-- client in lib/supabase.ts — but this is the policy that would apply if
+-- that changed). The server-side lookup a run submission uses
+-- (lib/challengeSource.ts) goes through the service-role client and can find
+-- an unapproved challenge by slug too, so the author can test-run their own
+-- pending submission before it's reviewed.
+drop policy if exists "approved challenges are publicly readable" on public.challenges;
+create policy "approved challenges are publicly readable"
+  on public.challenges for select
+  using (status = 'approved');
+
+-- Writes (submit + moderate) go through the server-side API routes using the
+-- service role key, same as runs/players/player_cosmetics above.

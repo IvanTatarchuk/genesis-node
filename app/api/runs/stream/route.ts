@@ -1,6 +1,6 @@
-import { getChallenge } from "@/challenges";
 import { runAgentLoop, type TranscriptEntry } from "@/lib/agentLoop";
-import { calculateReward } from "@/lib/economy";
+import { resolveChallenge } from "@/lib/challengeSource";
+import { calculateAuthorReward, calculateReward } from "@/lib/economy";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -42,9 +42,9 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  let challenge;
+  let challenge, authorName;
   try {
-    challenge = getChallenge(challengeId);
+    ({ challenge, authorName } = await resolveChallenge(challengeId));
   } catch {
     return new Response(JSON.stringify({ error: `unknown challenge: ${challengeId}` }), { status: 404 });
   }
@@ -85,6 +85,15 @@ export async function POST(request: Request): Promise<Response> {
             shardBalance = await awardShards(playerName, reward);
           } catch (error) {
             console.error("failed to award shards:", error);
+          }
+        }
+
+        const authorReward = calculateAuthorReward(finalResult.passed);
+        if (authorReward > 0 && authorName && authorName !== playerName) {
+          try {
+            await awardShards(authorName, authorReward);
+          } catch (error) {
+            console.error("failed to award author shards:", error);
           }
         }
 

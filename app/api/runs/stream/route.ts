@@ -1,6 +1,7 @@
 import { getChallenge } from "@/challenges";
 import { runAgentLoop, type TranscriptEntry } from "@/lib/agentLoop";
-import { recordRun } from "@/lib/supabase";
+import { calculateReward } from "@/lib/economy";
+import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -77,7 +78,19 @@ export async function POST(request: Request): Promise<Response> {
           console.error("failed to record run to Supabase:", error);
         }
 
-        controller.enqueue(sseEvent("done", { result: finalResult, iterations }));
+        const reward = calculateReward(finalResult.passed, iterations);
+        let shardBalance: number | null = null;
+        if (reward > 0) {
+          try {
+            shardBalance = await awardShards(playerName, reward);
+          } catch (error) {
+            console.error("failed to award shards:", error);
+          }
+        }
+
+        controller.enqueue(
+          sseEvent("done", { result: finalResult, iterations, reward, shardBalance })
+        );
       } catch (error) {
         controller.enqueue(
           sseEvent("error", { error: error instanceof Error ? error.message : String(error) })

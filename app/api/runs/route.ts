@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getChallenge } from "@/challenges";
 import { runAgentLoop } from "@/lib/agentLoop";
-import { recordRun } from "@/lib/supabase";
+import { calculateReward } from "@/lib/economy";
+import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 // Multi-turn now: up to maxIterations LLM calls + sandboxed grading runs each,
@@ -74,5 +75,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error("failed to record run to Supabase:", error);
   }
 
-  return NextResponse.json({ result: finalResult, iterations, transcript });
+  const reward = calculateReward(finalResult.passed, iterations);
+  let shardBalance: number | null = null;
+  if (reward > 0) {
+    try {
+      shardBalance = await awardShards(playerName, reward);
+    } catch (error) {
+      console.error("failed to award shards:", error);
+    }
+  }
+
+  return NextResponse.json({ result: finalResult, iterations, transcript, reward, shardBalance });
 }

@@ -18,6 +18,13 @@ export interface LeaderboardRow {
   duration_ms: number;
   iterations: number;
   created_at: string;
+  active_cosmetic_id: string | null;
+}
+
+export interface Player {
+  player_name: string;
+  shards: number;
+  active_cosmetic_id: string | null;
 }
 
 let serverClient: SupabaseClient | undefined;
@@ -65,4 +72,71 @@ export async function fetchLeaderboard(challengeId: string): Promise<Leaderboard
   }
 
   return data ?? [];
+}
+
+export async function fetchPlayer(playerName: string): Promise<Player | null> {
+  const { data, error } = await getServerSupabaseClient()
+    .from("players")
+    .select("player_name, shards, active_cosmetic_id")
+    .eq("player_name", playerName)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`failed to fetch player: ${error.message}`);
+  }
+
+  return data ?? null;
+}
+
+/**
+ * Credits shards to a player, creating their row on the first award. Goes
+ * through the award_shards() Postgres function so concurrent awards for the
+ * same player can't race and drop one (see supabase/schema.sql).
+ */
+export async function awardShards(playerName: string, amount: number): Promise<number> {
+  const { data, error } = await getServerSupabaseClient().rpc("award_shards", {
+    p_player_name: playerName,
+    p_amount: amount,
+  });
+
+  if (error) {
+    throw new Error(`failed to award shards: ${error.message}`);
+  }
+
+  return data as number;
+}
+
+/**
+ * Spends shards on a cosmetic via the purchase_cosmetic() function, which
+ * raises (and this rejects) rather than allowing a negative balance or a
+ * double purchase. Callers should surface error.message directly — it's
+ * already a plain-English reason (insufficient funds, already owned, etc).
+ */
+export async function purchaseCosmetic(
+  playerName: string,
+  cosmeticId: string,
+  cost: number
+): Promise<number> {
+  const { data, error } = await getServerSupabaseClient().rpc("purchase_cosmetic", {
+    p_player_name: playerName,
+    p_cosmetic_id: cosmeticId,
+    p_cost: cost,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as number;
+}
+
+export async function equipCosmetic(playerName: string, cosmeticId: string): Promise<void> {
+  const { error } = await getServerSupabaseClient().rpc("equip_cosmetic", {
+    p_player_name: playerName,
+    p_cosmetic_id: cosmeticId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

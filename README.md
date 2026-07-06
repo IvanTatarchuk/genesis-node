@@ -74,9 +74,13 @@ catalog. What exists right now:
   attempt is a real sandboxed grading run plus a real model call) for the whole
   `maxDuration` window. Unit-tested in `tests/loadouts.test.ts`.
 - Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
-  budget — watch attempts arrive live, shows final attempt count) and
+  budget — watch attempts arrive live, shows final attempt count),
   `/leaderboard?challenge=<id>` (per-challenge, with links to switch between
-  all four; the Model column now shows which loadout each run used).
+  challenges; the Model column shows which loadout each run used, and each
+  player name links to their profile), and `/players/<name>` — a public,
+  read-only profile (shard balance, equipped cosmetic, owned collection).
+  Buying/equipping stays in `/shop` (which needs the claim token); the profile
+  only shows what the leaderboard already exposes, so it needs no token.
 
 **Verified end-to-end**, including a real call to the Anthropic API (rejected
 cleanly with a real 401 when given a fake key, delivered as a real streamed

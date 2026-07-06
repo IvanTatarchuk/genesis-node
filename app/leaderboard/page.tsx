@@ -69,7 +69,9 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
                 <tr key={`${row.player_name}-${row.created_at}`}>
                   <td style={cellStyle}>{i + 1}</td>
                   <td style={cellStyle}>
-                    {row.player_name}
+                    <Link href={`/players/${encodeURIComponent(row.player_name)}`}>
+                      {row.player_name}
+                    </Link>
                     {badge && (
                       <span style={{ marginLeft: "0.4rem" }} title={badge.name}>
                         {badge.name}

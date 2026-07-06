@@ -22,6 +22,14 @@ export interface ModelOption {
   label: string;
   /** One-line tradeoff so a player can reason about their loadout choice. */
   blurb: string;
+  /**
+   * Shard-reward multiplier for passing on this model. Weaker/cheaper models
+   * pay *more* because clearing the same challenge with less firepower is the
+   * harder, riskier play — this is what gives the model choice a real cost
+   * instead of "always pick the strongest". The strongest model is the 1.0
+   * baseline; see lib/economy.ts for how it folds into the taper.
+   */
+  rewardMultiplier: number;
 }
 
 /**
@@ -35,16 +43,19 @@ export const MODELS: ModelOption[] = [
     id: "claude-opus-4-8",
     label: "Opus 4.8",
     blurb: "Most capable — best shot at the hardest challenges.",
+    rewardMultiplier: 1,
   },
   {
     id: "claude-sonnet-5",
     label: "Sonnet 5",
     blurb: "Balanced capability and speed — a solid default.",
+    rewardMultiplier: 1.25,
   },
   {
     id: "claude-haiku-4-5",
     label: "Haiku 4.5",
     blurb: "Fastest and cheapest — plenty for the simpler bugs.",
+    rewardMultiplier: 1.5,
   },
 ];
 
@@ -107,4 +118,10 @@ export function validateLoadout(input: {
  * recorded before this model set existed. */
 export function modelLabel(id: string): string {
   return MODELS.find((m) => m.id === id)?.label ?? id;
+}
+
+/** The shard-reward multiplier for a model id. Falls back to 1.0 (no bonus)
+ * for an unknown/legacy id so an old model string can never inflate a reward. */
+export function rewardMultiplier(id: string): number {
+  return MODELS.find((m) => m.id === id)?.rewardMultiplier ?? 1;
 }

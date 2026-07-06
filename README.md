@@ -118,7 +118,15 @@ npm run build   # full Next.js production build
   those tests, not mocked — only the model call is faked.
 - **Shard economy**: passing a run earns "shards" via `lib/economy.ts`
   (`calculateReward` — full reward for a one-shot pass, tapering per extra
-  iteration, floored at a minimum). Shards are credited through the atomic
+  iteration, floored at a minimum, then scaled by the loadout's model
+  multiplier). The model multiplier lives in the loadout catalog
+  (`lib/loadouts.ts`, `rewardMultiplier`): the strongest model is the 1.0
+  baseline and weaker/cheaper models pay *more* (Haiku 4.5 ×1.5, Sonnet 5
+  ×1.25), so clearing a challenge with less firepower — the harder, riskier
+  play — is worth more. This is what gives the model half of the loadout a real
+  cost instead of "always pick the strongest". The floor scales with the
+  multiplier too, so a hard-won pass on a weak model still beats a hard-won pass
+  on the strongest one. Shards are credited through the atomic
   `award_shards()` Postgres function and spent only on cosmetics
   (`lib/cosmetics.ts`, bought/equipped via `purchase_cosmetic()`/
   `equip_cosmetic()`, see `supabase/schema.sql`). There is no cashout path
@@ -170,9 +178,12 @@ original design discussion)
 - [x] Player-authored challenges with revenue share (shards, not cash — see
       the known cgroups gap above before exposing this beyond trusted users)
 - [x] Player-chosen loadout (model + attempt budget), validated server-side
-      against a curated catalog (`lib/loadouts.ts`) — still open: pricing the
-      loadout into the economy (a bigger model / bigger budget currently costs
-      the same in shard terms as a one-shot Haiku pass)
+      against a curated catalog (`lib/loadouts.ts`)
+- [x] Loadout priced into the economy: the model choice scales the shard
+      reward (weaker model → higher multiplier), so it's a real risk/reward
+      tradeoff, not a free "always pick the strongest". Still open: pricing the
+      *attempt budget* the same way (a wide budget is currently only penalized
+      by the per-iteration taper, not by the loadout itself)
 
 ## License
 

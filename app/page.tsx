@@ -201,12 +201,13 @@ export default function HomePage() {
             >
               {MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.label}
+                  {m.label} (reward ×{m.rewardMultiplier})
                 </option>
               ))}
             </select>
             <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
-              {selectedModel.blurb}
+              {selectedModel.blurb} Passing on a weaker model pays more — this one earns{" "}
+              <strong>×{selectedModel.rewardMultiplier}</strong> shards.
             </span>
           </label>
           <label>

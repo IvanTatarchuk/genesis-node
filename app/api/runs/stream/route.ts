@@ -1,7 +1,7 @@
 import { runAgentLoop, type TranscriptEntry } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
-import { validateLoadout } from "@/lib/loadouts";
+import { rewardMultiplier, validateLoadout } from "@/lib/loadouts";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -84,7 +84,11 @@ export async function POST(request: Request): Promise<Response> {
           console.error("failed to record run to Supabase:", error);
         }
 
-        const reward = calculateReward(finalResult.passed, iterations);
+        const reward = calculateReward(
+          finalResult.passed,
+          iterations,
+          rewardMultiplier(loadout.loadout.model)
+        );
         let shardBalance: number | null = null;
         let claimToken: string | null = null;
         if (reward > 0) {

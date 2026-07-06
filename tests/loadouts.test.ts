@@ -7,6 +7,7 @@ import {
   MIN_ITERATIONS,
   MODELS,
   modelLabel,
+  rewardMultiplier,
   validateLoadout,
 } from "../lib/loadouts";
 
@@ -24,6 +25,12 @@ describe("catalog invariants", () => {
   it("has a default iteration budget within the allowed bounds", () => {
     expect(DEFAULT_ITERATIONS).toBeGreaterThanOrEqual(MIN_ITERATIONS);
     expect(DEFAULT_ITERATIONS).toBeLessThanOrEqual(MAX_ITERATIONS);
+  });
+
+  it("gives every model a reward multiplier of at least 1", () => {
+    for (const m of MODELS) {
+      expect(m.rewardMultiplier).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 
@@ -74,5 +81,17 @@ describe("modelLabel", () => {
 
   it("falls back to the raw id for an unknown/legacy model", () => {
     expect(modelLabel("claude-sonnet-4-5")).toBe("claude-sonnet-4-5");
+  });
+});
+
+describe("rewardMultiplier", () => {
+  it("returns the catalog multiplier for a known model", () => {
+    for (const m of MODELS) {
+      expect(rewardMultiplier(m.id)).toBe(m.rewardMultiplier);
+    }
+  });
+
+  it("falls back to 1.0 for an unknown/legacy model so it can't inflate a reward", () => {
+    expect(rewardMultiplier("claude-sonnet-4-5")).toBe(1);
   });
 });

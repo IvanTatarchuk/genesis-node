@@ -120,7 +120,10 @@ catalog. What exists right now:
   published ledger — anyone can recompute the exact ratings and check them,
   which is what makes a rating worth citing. Pure and dependency-free; fully
   unit-tested (`tests/rating.test.ts`: expected-score odds, zero-sum updates,
-  harder-win-rewards-more, determinism, custom K).
+  harder-win-rewards-more, determinism, custom K). Surfaced at `/ratings` — a
+  model leaderboard and a challenge-difficulty table computed live from the
+  public run history (`fetchAllRuns`, chronological so the numbers are
+  reproducible), degrading like the leaderboard when Supabase isn't configured.
 - Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
   budget — watch attempts arrive live, shows final attempt count),
   `/leaderboard?challenge=<id>` (per-challenge, with links to switch between

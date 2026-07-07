@@ -317,7 +317,8 @@ export default function HomePage() {
 
       <p style={{ marginTop: "2rem" }}>
         <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link> ·{" "}
-        <Link href="/shop">Shop</Link> · <Link href="/challenges/submit">Submit a challenge</Link>
+        <Link href="/ratings">Ratings</Link> · <Link href="/shop">Shop</Link> ·{" "}
+        <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
     </main>
   );

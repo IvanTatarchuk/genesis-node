@@ -83,6 +83,31 @@ export async function recordRun(record: RunRecord): Promise<void> {
   }
 }
 
+export interface RunOutcome {
+  model: string;
+  challenge_id: string;
+  passed: boolean;
+  created_at: string;
+}
+
+/**
+ * Every run's outcome in chronological order — the input the Elo ratings
+ * (lib/rating.ts) are computed from. Ordered by created_at so the ratings are
+ * reproducible: anyone with the same run history recomputes the same numbers.
+ */
+export async function fetchAllRuns(): Promise<RunOutcome[]> {
+  const { data, error } = await getServerSupabaseClient()
+    .from("runs")
+    .select("model, challenge_id, passed, created_at")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`failed to fetch runs: ${error.message}`);
+  }
+
+  return data ?? [];
+}
+
 export async function fetchLeaderboard(challengeId: string): Promise<LeaderboardRow[]> {
   const { data, error } = await getServerSupabaseClient()
     .from("leaderboard")

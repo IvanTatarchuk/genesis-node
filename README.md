@@ -90,6 +90,24 @@ catalog. What exists right now:
   held-out challenges — rewarding one that generalizes, which a pasted answer
   can't — turning any "solve it in another window" into fair theorycraft rather
   than a way to cheat.
+- A tamper-evident results ledger (`lib/ledger.ts`) — the "make it a benchmark,
+  not just an app" cornerstone, and the piece meant to outlive any single model
+  or host. It borrows the two load-bearing ideas that make Bitcoin's history
+  trustworthy — **content-addressing** (a challenge, strategy, and submission
+  are each identified by the hash of their own content, so a reference is
+  immutable and database-independent) and **hash chaining** (each result commits
+  to the previous record's hash, so altering, reordering, or deleting any past
+  record breaks every hash after it and `verifyChain` catches it, pointing at
+  the exact broken index). It deliberately drops what money forced on Bitcoin
+  but a benchmark doesn't need — no proof-of-work, no coin, no global consensus:
+  a coding result is *reproducible*, so anyone can re-run the recorded submission
+  against the content-addressed challenge in the sandbox and check the pass/fail
+  themselves. Truth is established by re-execution, not mining — Bitcoin's
+  trustless verification without the energy, the token, or the regulatory
+  surface. Pure and dependency-light (only `node:crypto`), fully unit-tested
+  (`tests/ledger.test.ts`: determinism, order-independence, chain linkage,
+  tamper/reorder/delete detection, export→import round-trip) — persisting and
+  publishing the chain layers on top; the integrity guarantees live here.
 - Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
   budget — watch attempts arrive live, shows final attempt count),
   `/leaderboard?challenge=<id>` (per-challenge, with links to switch between

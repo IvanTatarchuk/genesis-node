@@ -108,6 +108,19 @@ catalog. What exists right now:
   (`tests/ledger.test.ts`: determinism, order-independence, chain linkage,
   tamper/reorder/delete detection, export→import round-trip) — persisting and
   publishing the chain layers on top; the integrity guarantees live here.
+- Elo ratings (`lib/rating.ts`) — the citable abstraction on top of the ledger,
+  and the "rules, not rulers" piece. Every graded run is a game between the
+  *model* and the *challenge*: a pass means the model won and the challenge
+  lost, a fail the reverse. Folding a whole result history through standard Elo
+  yields, with no human labeling and no authority to trust, both a **model
+  rating** (which model actually debugs best, weighted by how hard its
+  challenges turned out to be) and a **self-calibrating challenge difficulty**
+  (one everyone one-shots sinks; a genuinely hard one rises). Because the input
+  (pass/fail) is reproducible, the whole computation is deterministic from the
+  published ledger — anyone can recompute the exact ratings and check them,
+  which is what makes a rating worth citing. Pure and dependency-free; fully
+  unit-tested (`tests/rating.test.ts`: expected-score odds, zero-sum updates,
+  harder-win-rewards-more, determinism, custom K).
 - Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
   budget — watch attempts arrive live, shows final attempt count),
   `/leaderboard?challenge=<id>` (per-challenge, with links to switch between

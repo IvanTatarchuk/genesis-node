@@ -32,7 +32,8 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
       <h1>Leaderboard</h1>
       <p>
         <Link href="/">Back</Link> · <Link href="/ratings">Ratings</Link> ·{" "}
-        <Link href="/shop">Shop</Link> · <Link href="/challenges/submit">Submit a challenge</Link>
+        <Link href="/challenges">All challenges</Link> · <Link href="/shop">Shop</Link> ·{" "}
+        <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
 
       <nav style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>

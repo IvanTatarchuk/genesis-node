@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { validateSubmission, type ChallengeSubmissionInput } from "../lib/challengeSource";
+import {
+  listChallengeMetadata,
+  validateSubmission,
+  type ChallengeSubmissionInput,
+} from "../lib/challengeSource";
 
 function validSubmission(overrides: Partial<ChallengeSubmissionInput> = {}): ChallengeSubmissionInput {
   return {
@@ -119,5 +123,23 @@ describe("validateSubmission", () => {
         })
       )
     ).toMatch(/rewrite the grader/);
+  });
+});
+
+// Supabase isn't configured under test, so listChallengeMetadata falls back to
+// the built-in catalog — enough to check category/tags are threaded through.
+describe("listChallengeMetadata (built-ins)", () => {
+  it("carries category and tags on the built-in challenges", async () => {
+    const meta = await listChallengeMetadata();
+
+    const pathTraversal = meta.find((c) => c.id === "path-traversal");
+    expect(pathTraversal?.category).toBe("security");
+    expect(pathTraversal?.tags).toContain("cwe-22");
+
+    const sumRange = meta.find((c) => c.id === "sum-range");
+    expect(sumRange?.category).toBe("correctness");
+    expect(sumRange?.tags).toEqual([]);
+
+    expect(meta.filter((c) => c.category === "security").length).toBeGreaterThanOrEqual(3);
   });
 });

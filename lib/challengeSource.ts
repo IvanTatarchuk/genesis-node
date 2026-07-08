@@ -8,6 +8,8 @@ export interface ChallengeMeta {
   prompt: string;
   authorName: string | null;
   category: ChallengeCategory;
+  /** Freeform labels (e.g. a CWE / vulnerability class); empty for most. */
+  tags: string[];
 }
 
 export interface ChallengeSubmissionInput {
@@ -104,6 +106,7 @@ export async function listChallengeMetadata(): Promise<ChallengeMeta[]> {
     prompt: c.prompt,
     authorName: null,
     category: challengeCategory(c),
+    tags: c.tags ?? [],
   }));
 
   let custom: ChallengeMeta[] = [];
@@ -117,6 +120,7 @@ export async function listChallengeMetadata(): Promise<ChallengeMeta[]> {
       // Player-authored challenges don't carry a category yet — default to
       // correctness until a category column is added to submissions.
       category: "correctness" as const,
+      tags: [],
     }));
   } catch {
     // Supabase not configured, or unreachable — built-ins alone still work.

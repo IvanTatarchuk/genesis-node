@@ -25,6 +25,7 @@ interface ChallengeMeta {
   prompt: string;
   authorName: string | null;
   category: ChallengeCategory;
+  tags: string[];
 }
 
 const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
@@ -33,6 +34,7 @@ const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
   prompt: c.prompt,
   authorName: null,
   category: challengeCategory(c),
+  tags: c.tags ?? [],
 }));
 
 interface LiveIteration {
@@ -86,6 +88,7 @@ async function consumeEventStream(
 
 export default function HomePage() {
   const [challenges, setChallenges] = useState<ChallengeMeta[]>(builtInMeta);
+  const [categoryFilter, setCategoryFilter] = useState<"all" | ChallengeCategory>("all");
   const [challengeId, setChallengeId] = useState(builtInMeta[0]!.id);
   const [playerName, setPlayerName] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -114,6 +117,21 @@ export default function HomePage() {
     setRole(next);
     storeRole(next);
   }
+
+  const visibleChallenges = useMemo(
+    () =>
+      categoryFilter === "all"
+        ? challenges
+        : challenges.filter((c) => c.category === categoryFilter),
+    [challenges, categoryFilter]
+  );
+
+  // Keep the selection valid when the filter hides the current challenge.
+  useEffect(() => {
+    if (visibleChallenges.length > 0 && !visibleChallenges.some((c) => c.id === challengeId)) {
+      setChallengeId(visibleChallenges[0]!.id);
+    }
+  }, [visibleChallenges, challengeId]);
 
   const challenge = useMemo(
     () => challenges.find((c) => c.id === challengeId) ?? challenges[0]!,
@@ -201,6 +219,19 @@ export default function HomePage() {
       </fieldset>
 
       <label>
+        Category
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as "all" | ChallengeCategory)}
+          style={{ display: "block", width: "100%", marginBottom: "0.5rem" }}
+        >
+          <option value="all">All</option>
+          <option value="security">🛡️ Security</option>
+          <option value="correctness">Correctness</option>
+        </select>
+      </label>
+
+      <label>
         Challenge
         <select
           value={challengeId}
@@ -212,7 +243,7 @@ export default function HomePage() {
           }}
           style={{ display: "block", width: "100%", marginBottom: "0.75rem" }}
         >
-          {challenges.map((c) => (
+          {visibleChallenges.map((c) => (
             <option key={c.id} value={c.id}>
               {c.category === "security" ? "🛡️ " : ""}
               {c.title}
@@ -365,8 +396,8 @@ export default function HomePage() {
 
       <p style={{ marginTop: "2rem" }}>
         <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link> ·{" "}
-        <Link href="/ratings">Ratings</Link> · <Link href="/shop">Shop</Link> ·{" "}
-        <Link href="/challenges/submit">Submit a challenge</Link>
+        <Link href="/ratings">Ratings</Link> · <Link href="/challenges">All challenges</Link> ·{" "}
+        <Link href="/shop">Shop</Link> · <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
     </main>
   );

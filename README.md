@@ -150,14 +150,17 @@ catalog. What exists right now:
   model leaderboard and a challenge-difficulty table computed live from the
   public run history (`fetchAllRuns`, chronological so the numbers are
   reproducible), degrading like the leaderboard when Supabase isn't configured.
-- Minimal UI: `/` (pick a challenge, configure a loadout — model + attempt
-  budget — watch attempts arrive live, shows final attempt count),
-  `/leaderboard?challenge=<id>` (per-challenge, with links to switch between
-  challenges; the Model column shows which loadout each run used, and each
-  player name links to their profile), and `/players/<name>` — a public,
-  read-only profile (shard balance, equipped cosmetic, owned collection).
-  Buying/equipping stays in `/shop` (which needs the claim token); the profile
-  only shows what the leaderboard already exposes, so it needs no token.
+- Minimal UI: `/` (choose a path — Breaker/Defender — filter challenges by
+  category, configure a loadout — model + attempt budget + strategy — watch
+  attempts arrive live), `/challenges` (a browseable catalog grouped by
+  category, with the security set as its own section and CWE tags on each),
+  `/leaderboard?challenge=<id>` (per-challenge; the Model column shows which
+  loadout each run used, and each player name links to their profile),
+  `/ratings` (Elo model leaderboard + challenge difficulty), and
+  `/players/<name>` — a public, read-only profile (shard balance, equipped
+  cosmetic, owned collection). Buying/equipping stays in `/shop` (which needs
+  the claim token); the profile only shows what the leaderboard already
+  exposes, so it needs no token.
 
 **Verified end-to-end**, including a real call to the Anthropic API (rejected
 cleanly with a real 401 when given a fake key, delivered as a real streamed

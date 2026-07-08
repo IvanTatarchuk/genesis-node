@@ -26,3 +26,35 @@ jobs:
 
       - name: Build (Supabase env vars intentionally unset — must fail gracefully, not crash)
         run: npm run build
+
+  schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply schema.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/schema.sql
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+      # Exercises award_shards/purchase_cosmetic/equip_cosmetic (claim
+      # tokens included) and the challenges status check constraint against
+      # a real Postgres instance — every prior verification of this schema
+      # was a manual psql session that left nothing behind for the next
+      # change to be checked against; this does.
+      - name: Run schema assertions
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/schema.test.sql
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres

@@ -146,6 +146,17 @@ npm run build   # full Next.js production build
   (`lib/claimToken.ts`) so playing under a name once is enough — there's no
   recovery flow if it's lost (different device/browser, cleared storage),
   matching the project's "no accounts" scope so far.
+- **Schema correctness is a CI check, not just a manual habit**: every
+  Postgres function in `supabase/schema.sql` (award_shards, purchase_cosmetic,
+  equip_cosmetic, the challenges status constraint) had only ever been
+  verified by hand, in ad hoc local `psql` sessions that leave nothing behind
+  for the next change to be checked against — which is exactly how the
+  claim-token migration bug above slipped through once already. The `schema`
+  job in `.github/workflows/ci.yml` now spins up a real `postgres:16` service,
+  applies `supabase/schema.sql`, then runs `supabase/schema.test.sql` (a set
+  of `DO` blocks with real assertions, including the exact wrong-token/
+  already-owned/insufficient-funds/wrong-owner paths) — verified locally to
+  actually fail against the pre-claim-token schema, not just pass regardless.
 
 ## Roadmap (see `docs/` in the mcp-guard repo's `IDEAS_BACKLOG.md` for the
 original design discussion)

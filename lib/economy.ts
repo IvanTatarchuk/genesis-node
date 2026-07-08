@@ -14,13 +14,26 @@ const AUTHOR_REWARD = 20;
  * A one-shot pass earns the full base reward; each additional attempt beyond
  * the first chips away at it (rewards efficiency, not just eventually
  * succeeding), floored so a hard-won pass is never worth nothing.
+ *
+ * `loadoutMultiplier` scales the whole thing by the player's loadout — model
+ * choice × declared attempt budget (see lib/loadouts.ts). A weaker model and a
+ * tighter budget both pay more, because clearing the same challenge with less
+ * firepower or fewer retries is the harder, riskier play. The floor and
+ * multiplier compose so the minimum is scaled too — a hard-won pass on a lean
+ * loadout still beats one on a maxed-out loadout. The multiplier is applied
+ * last and rounded, so rewards stay whole numbers.
  */
-export function calculateReward(passed: boolean, iterations: number): number {
+export function calculateReward(
+  passed: boolean,
+  iterations: number,
+  loadoutMultiplier = 1
+): number {
   if (!passed) return 0;
 
   const extraIterations = Math.max(0, iterations - 1);
-  const reward = BASE_REWARD - PENALTY_PER_EXTRA_ITERATION * extraIterations;
-  return Math.max(MINIMUM_REWARD, reward);
+  const tapered = BASE_REWARD - PENALTY_PER_EXTRA_ITERATION * extraIterations;
+  const reward = Math.max(MINIMUM_REWARD, tapered);
+  return Math.round(reward * loadoutMultiplier);
 }
 
 /**

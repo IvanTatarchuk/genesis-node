@@ -1,8 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 
+import { csvSumChallenge } from "../challenges/csv-sum";
 import { sumRangeChallenge } from "../challenges/sum-range";
 import { runAgentLoop, type MessagesClient } from "../lib/agentLoop";
+import { sandboxUsable } from "./sandboxSupport";
 
 const BUGGY = sumRangeChallenge.files["sum.js"]!;
 const FIXED = [
@@ -37,6 +39,21 @@ function toolUseResponse(id: string, content: string, reasoning?: string): Anthr
   } as Anthropic.Message;
 }
 
+function multiFileToolUseResponse(id: string, files: Record<string, string>): Anthropic.Message {
+  return {
+    id: "msg_test",
+    type: "message",
+    role: "assistant",
+    model: "claude-sonnet-4-5",
+    content: [
+      { type: "tool_use", id, name: "test_solution", input: { files } } as Anthropic.ToolUseBlock,
+    ],
+    stop_reason: "tool_use",
+    stop_sequence: null,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  } as Anthropic.Message;
+}
+
 function textResponse(text: string): Anthropic.Message {
   return {
     id: "msg_test",
@@ -50,7 +67,7 @@ function textResponse(text: string): Anthropic.Message {
   } as unknown as Anthropic.Message;
 }
 
-describe("runAgentLoop", () => {
+describe.skipIf(!sandboxUsable())("runAgentLoop", () => {
   it("iterates: fails once, then submits a fix that passes", async () => {
     const create = vi
       .fn()
@@ -125,5 +142,60 @@ describe("runAgentLoop", () => {
     expect(result.iterations).toBe(1);
     expect(result.finalResult.passed).toBe(true);
     expect(create).toHaveBeenCalledTimes(1);
+  }, 15_000);
+
+  it("grades a real multi-file submission: fixing one file fails, then fixing both passes", async () => {
+    const fixedParse = "function parse(csv) {\n  return csv.split(',').map(Number);\n}\nmodule.exports = { parse };\n";
+    const fixedSum =
+      "function sum(nums) {\n  let total = 0;\n  for (const n of nums) { total += n; }\n  return total;\n}\nmodule.exports = { sum };\n";
+
+    const create = vi
+      .fn()
+      // First attempt only fixes parse.js — sum.js is still buggy, so it fails.
+      .mockResolvedValueOnce(multiFileToolUseResponse("call_1", { "parse.js": fixedParse }))
+      // Second attempt fixes both files — passes.
+      .mockResolvedValueOnce(
+        multiFileToolUseResponse("call_2", { "parse.js": fixedParse, "sum.js": fixedSum })
+      );
+    const client: MessagesClient = { messages: { create } };
+
+    const result = await runAgentLoop(csvSumChallenge, { apiKey: "unused" }, client);
+
+    expect(result.iterations).toBe(2);
+    expect(result.transcript[0]!.passed).toBe(false);
+    expect(result.finalResult.passed).toBe(true);
+    // The transcript records the multi-file submission with path headers.
+    expect(result.transcript[1]!.submittedContent).toContain("--- parse.js ---");
+    expect(result.transcript[1]!.submittedContent).toContain("--- sum.js ---");
+    expect(create).toHaveBeenCalledTimes(2);
+  }, 20_000);
+});
+
+// Not gated on the sandbox: these only assert what the model was *asked*, on the
+// first create call — which happens before any grading — so they verify the
+// strategy → system-prompt wiring even where the sandbox is unusable (CI).
+describe("runAgentLoop strategy → system prompt", () => {
+  it("passes the player's strategy as the system prompt when one is given", async () => {
+    const create = vi.fn().mockResolvedValue(toolUseResponse("call_1", FIXED));
+    const client: MessagesClient = { messages: { create } };
+
+    await runAgentLoop(
+      sumRangeChallenge,
+      { apiKey: "unused", strategy: "focus on off-by-one bounds", maxIterations: 1 },
+      client
+    );
+
+    const params = create.mock.calls[0]![0] as { system?: string };
+    expect(params.system).toContain("focus on off-by-one bounds");
+  }, 15_000);
+
+  it("omits the system prompt entirely when no strategy is given", async () => {
+    const create = vi.fn().mockResolvedValue(toolUseResponse("call_1", FIXED));
+    const client: MessagesClient = { messages: { create } };
+
+    await runAgentLoop(sumRangeChallenge, { apiKey: "unused", maxIterations: 1 }, client);
+
+    const params = create.mock.calls[0]![0] as { system?: string };
+    expect(params.system).toBeUndefined();
   }, 15_000);
 });

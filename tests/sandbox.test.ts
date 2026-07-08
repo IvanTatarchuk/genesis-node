@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
 import { buildChallengeRunCommand, buildSandboxedCommand } from "../lib/sandbox";
+import { sandboxUsable } from "./sandboxSupport";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,7 +22,9 @@ function run(argv: string[]) {
   return execFileAsync(cmd, args);
 }
 
-describe("sandbox", () => {
+const SANDBOX = sandboxUsable();
+
+describe.skipIf(!SANDBOX)("sandbox (real isolation)", () => {
   it("blocks outbound network access", async () => {
     const probe =
       "const net=require('net');const s=net.connect(53,'8.8.8.8');" +
@@ -69,6 +72,12 @@ describe("sandbox", () => {
     }
   });
 
+});
+
+// This one needs no sandbox — it checks buildChallengeRunCommand refuses a bad
+// seed dir before running anything — so it always runs, even where unshare is
+// unusable.
+describe("buildChallengeRunCommand validation", () => {
   it("rejects a seed directory under /tmp before ever running anything", () => {
     expect(() => buildChallengeRunCommand("/tmp/whatever", ["true"])).toThrow(/must not be under \/tmp/);
   });

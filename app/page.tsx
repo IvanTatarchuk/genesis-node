@@ -4,13 +4,28 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { challengeList } from "@/challenges";
+import { challengeCategory, type ChallengeCategory } from "@/lib/challenge";
 import { storeClaimToken } from "@/lib/claimToken";
+import { calculateReward } from "@/lib/economy";
+import {
+  DEFAULT_ITERATIONS,
+  DEFAULT_MODEL,
+  loadoutMultiplier,
+  MAX_ITERATIONS,
+  MAX_STRATEGY_LENGTH,
+  MIN_ITERATIONS,
+  MODELS,
+} from "@/lib/loadouts";
+import { getStoredRole, storeRole } from "@/lib/rolePreference";
+import { DEFAULT_ROLE, ROLES, type RoleId } from "@/lib/roles";
 
 interface ChallengeMeta {
   id: string;
   title: string;
   prompt: string;
   authorName: string | null;
+  category: ChallengeCategory;
+  tags: string[];
 }
 
 const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
@@ -18,6 +33,8 @@ const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
   title: c.title,
   prompt: c.prompt,
   authorName: null,
+  category: challengeCategory(c),
+  tags: c.tags ?? [],
 }));
 
 interface LiveIteration {
@@ -71,9 +88,14 @@ async function consumeEventStream(
 
 export default function HomePage() {
   const [challenges, setChallenges] = useState<ChallengeMeta[]>(builtInMeta);
+  const [categoryFilter, setCategoryFilter] = useState<"all" | ChallengeCategory>("all");
   const [challengeId, setChallengeId] = useState(builtInMeta[0]!.id);
   const [playerName, setPlayerName] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [maxIterations, setMaxIterations] = useState(DEFAULT_ITERATIONS);
+  const [strategy, setStrategy] = useState("");
+  const [role, setRole] = useState<RoleId>(DEFAULT_ROLE);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [liveIterations, setLiveIterations] = useState<LiveIteration[]>([]);
   const [done, setDone] = useState<DonePayload | null>(null);
@@ -86,9 +108,46 @@ export default function HomePage() {
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const stored = getStoredRole();
+    if (stored) setRole(stored);
+  }, []);
+
+  function chooseRole(next: RoleId) {
+    setRole(next);
+    storeRole(next);
+  }
+
+  const visibleChallenges = useMemo(
+    () =>
+      categoryFilter === "all"
+        ? challenges
+        : challenges.filter((c) => c.category === categoryFilter),
+    [challenges, categoryFilter]
+  );
+
+  // Keep the selection valid when the filter hides the current challenge.
+  useEffect(() => {
+    if (visibleChallenges.length > 0 && !visibleChallenges.some((c) => c.id === challengeId)) {
+      setChallengeId(visibleChallenges[0]!.id);
+    }
+  }, [visibleChallenges, challengeId]);
+
   const challenge = useMemo(
     () => challenges.find((c) => c.id === challengeId) ?? challenges[0]!,
     [challenges, challengeId]
+  );
+
+  const selectedModel = useMemo(
+    () => MODELS.find((m) => m.id === model) ?? MODELS[0]!,
+    [model]
+  );
+
+  // What a clean one-shot pass on the current loadout would pay — makes both
+  // multipliers (model + budget) concrete before the player commits.
+  const oneShotReward = useMemo(
+    () => calculateReward(true, 1, loadoutMultiplier({ model, maxIterations })),
+    [model, maxIterations]
   );
 
   async function handleSubmit(event: FormEvent) {
@@ -101,7 +160,7 @@ export default function HomePage() {
     const res = await fetch("/api/runs/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challengeId, playerName, apiKey }),
+      body: JSON.stringify({ challengeId, playerName, apiKey, model, maxIterations, strategy }),
     });
 
     const contentType = res.headers.get("content-type") ?? "";
@@ -129,9 +188,48 @@ export default function HomePage() {
     setStatus("done");
   }
 
+  const activeRole = ROLES.find((r) => r.id === role) ?? ROLES[0]!;
+
   return (
     <main style={{ maxWidth: 720, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <h1>Agent Arena</h1>
+
+      <fieldset style={{ border: "1px solid #ddd", borderRadius: 4, padding: "0.75rem", marginBottom: "1rem" }}>
+        <legend style={{ padding: "0 0.4rem", color: "#555" }}>Your path</legend>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {ROLES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => chooseRole(r.id)}
+              style={{
+                padding: "0.4rem 0.75rem",
+                borderRadius: 4,
+                border: `1px solid ${r.id === role ? "#3a3" : "#ccc"}`,
+                background: r.id === role ? "#eaffea" : "#fff",
+                fontWeight: r.id === role ? "bold" : "normal",
+                cursor: "pointer",
+              }}
+            >
+              {r.label} — {r.tagline}
+            </button>
+          ))}
+        </div>
+        <p style={{ margin: "0.5rem 0 0", color: "#666", fontSize: "0.85rem" }}>{activeRole.does}</p>
+      </fieldset>
+
+      <label>
+        Category
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as "all" | ChallengeCategory)}
+          style={{ display: "block", width: "100%", marginBottom: "0.5rem" }}
+        >
+          <option value="all">All</option>
+          <option value="security">🛡️ Security</option>
+          <option value="correctness">Correctness</option>
+        </select>
+      </label>
 
       <label>
         Challenge
@@ -145,14 +243,20 @@ export default function HomePage() {
           }}
           style={{ display: "block", width: "100%", marginBottom: "0.75rem" }}
         >
-          {challenges.map((c) => (
+          {visibleChallenges.map((c) => (
             <option key={c.id} value={c.id}>
+              {c.category === "security" ? "🛡️ " : ""}
               {c.title}
               {c.authorName && ` (by ${c.authorName})`}
             </option>
           ))}
         </select>
       </label>
+      {challenge.category === "security" && (
+        <p style={{ margin: "0 0 0.25rem", color: "#a15c00", fontWeight: "bold" }}>
+          🛡️ Security challenge — fix the vulnerability, don&apos;t just make the test pass.
+        </p>
+      )}
       <p style={{ whiteSpace: "pre-wrap", color: "#555" }}>{challenge.prompt}</p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}>
@@ -175,6 +279,65 @@ export default function HomePage() {
             style={{ display: "block", width: "100%" }}
           />
         </label>
+
+        <fieldset style={{ border: "1px solid #ddd", borderRadius: 4, padding: "0.75rem", display: "grid", gap: "0.75rem" }}>
+          <legend style={{ padding: "0 0.4rem", color: "#555" }}>Loadout</legend>
+          <label>
+            Model
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              style={{ display: "block", width: "100%" }}
+            >
+              {MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label} (reward ×{m.rewardMultiplier})
+                </option>
+              ))}
+            </select>
+            <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+              {selectedModel.blurb} Passing on a weaker model pays more — this one earns{" "}
+              <strong>×{selectedModel.rewardMultiplier}</strong> shards.
+            </span>
+          </label>
+          <label>
+            Attempt budget: {maxIterations}
+            <input
+              type="range"
+              min={MIN_ITERATIONS}
+              max={MAX_ITERATIONS}
+              step={1}
+              value={maxIterations}
+              onChange={(e) => setMaxIterations(Number(e.target.value))}
+              style={{ display: "block", width: "100%" }}
+            />
+            <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+              How many times the agent may test-and-revise. Fewer reserved attempts is the bolder
+              loadout — a miss means no retries — so a tighter budget pays more, on top of the
+              per-attempt taper.
+            </span>
+          </label>
+          <label>
+            Agent strategy (optional)
+            <textarea
+              rows={3}
+              maxLength={MAX_STRATEGY_LENGTH}
+              value={strategy}
+              onChange={(e) => setStrategy(e.target.value)}
+              placeholder="Coach the agent — e.g. &quot;Read the failing test first, then look for off-by-one bounds and unhandled edge cases before changing anything.&quot;"
+              style={{ display: "block", width: "100%", fontFamily: "inherit" }}
+            />
+            <span style={{ display: "block", color: "#777", fontSize: "0.85rem", marginTop: "0.2rem" }}>
+              Guidance on <em>how</em> to attack the bug, not the answer — this becomes the agent&apos;s
+              system prompt. A sharper strategy is the real skill here. {strategy.length}/
+              {MAX_STRATEGY_LENGTH}
+            </span>
+          </label>
+          <p style={{ margin: 0, fontSize: "0.9rem" }}>
+            A clean one-shot pass on this loadout earns <strong>{oneShotReward}</strong> shards.
+          </p>
+        </fieldset>
+
         <button type="submit" disabled={status === "running"}>
           {status === "running" ? "Running..." : "Run"}
         </button>
@@ -233,6 +396,7 @@ export default function HomePage() {
 
       <p style={{ marginTop: "2rem" }}>
         <Link href={`/leaderboard?challenge=${challengeId}`}>View leaderboard</Link> ·{" "}
+        <Link href="/ratings">Ratings</Link> · <Link href="/challenges">All challenges</Link> ·{" "}
         <Link href="/shop">Shop</Link> · <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
     </main>

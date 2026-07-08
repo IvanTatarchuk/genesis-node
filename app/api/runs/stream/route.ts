@@ -1,6 +1,8 @@
 import { runAgentLoop, type TranscriptEntry } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
+import { loadoutMultiplier, validateLoadout } from "@/lib/loadouts";
+import { getClientIp, retryAfterSeconds, runLimiter } from "@/lib/rateLimit";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -12,6 +14,7 @@ interface SubmitRunBody {
   apiKey?: string;
   model?: string;
   maxIterations?: number;
+  strategy?: string;
 }
 
 function sseEvent(event: string, data: unknown): Uint8Array {
@@ -27,6 +30,15 @@ function sseEvent(event: string, data: unknown): Uint8Array {
  * EventSource (it only supports GET); the client reads the stream via fetch.
  */
 export async function POST(request: Request): Promise<Response> {
+  const limit = runLimiter.check(getClientIp(request));
+  if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit);
+    return new Response(JSON.stringify({ error: `rate limit exceeded — retry in ${retryAfter}s` }), {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
+  }
+
   let body: SubmitRunBody;
   try {
     body = await request.json();
@@ -34,12 +46,17 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: "invalid JSON body" }), { status: 400 });
   }
 
-  const { challengeId, playerName, apiKey, model, maxIterations } = body;
+  const { challengeId, playerName, apiKey, model, maxIterations, strategy } = body;
   if (!challengeId || !playerName || !apiKey) {
     return new Response(
       JSON.stringify({ error: "challengeId, playerName, and apiKey are all required" }),
       { status: 400 }
     );
+  }
+
+  const loadout = validateLoadout({ model, maxIterations, strategy });
+  if (!loadout.ok) {
+    return new Response(JSON.stringify({ error: loadout.error }), { status: 400 });
   }
 
   let challenge, authorName;
@@ -58,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
       try {
         const { finalResult, iterations } = await runAgentLoop(
           challenge,
-          { apiKey, model, maxIterations },
+          { apiKey, ...loadout.loadout },
           undefined,
           onIteration
         );
@@ -67,7 +84,7 @@ export async function POST(request: Request): Promise<Response> {
           await recordRun({
             challenge_id: challenge.id,
             player_name: playerName,
-            model: model ?? "claude-sonnet-4-5",
+            model: loadout.loadout.model,
             passed: finalResult.passed,
             duration_ms: finalResult.durationMs,
             iterations,
@@ -78,7 +95,11 @@ export async function POST(request: Request): Promise<Response> {
           console.error("failed to record run to Supabase:", error);
         }
 
-        const reward = calculateReward(finalResult.passed, iterations);
+        const reward = calculateReward(
+          finalResult.passed,
+          iterations,
+          loadoutMultiplier(loadout.loadout)
+        );
         let shardBalance: number | null = null;
         let claimToken: string | null = null;
         if (reward > 0) {

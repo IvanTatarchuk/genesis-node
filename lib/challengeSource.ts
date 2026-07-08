@@ -1,4 +1,4 @@
-import type { Challenge } from "./challenge";
+import { challengeCategory, type Challenge, type ChallengeCategory } from "./challenge";
 import { challengeList, challenges as builtInChallenges } from "../challenges";
 import { fetchApprovedChallenges, fetchChallengeBySlug, insertChallengeSubmission } from "./supabase";
 
@@ -7,6 +7,9 @@ export interface ChallengeMeta {
   title: string;
   prompt: string;
   authorName: string | null;
+  category: ChallengeCategory;
+  /** Freeform labels (e.g. a CWE / vulnerability class); empty for most. */
+  tags: string[];
 }
 
 export interface ChallengeSubmissionInput {
@@ -16,6 +19,14 @@ export interface ChallengeSubmissionInput {
   prompt: string;
   files: Record<string, string>;
   solutionFile: string;
+  /**
+   * Extra editable files for a multi-file challenge (optional). Same role as
+   * Challenge.additionalSolutionFiles: the full editable set is `solutionFile`
+   * plus these. Every entry must be a submitted file, and — critically — the
+   * grading test file must NOT be in the editable set (see validateSubmission),
+   * or an attempter could rewrite the grader to trivially pass.
+   */
+  additionalSolutionFiles?: string[];
   /** Must be exactly ["node", "--test", "<a .test.js file from `files`>"] — see validateSubmission. */
   testCommand: string[];
 }
@@ -46,6 +57,17 @@ export function validateSubmission(input: ChallengeSubmissionInput): string | nu
   if (Object.keys(input.files).length === 0) return "files must not be empty";
   if (!(input.solutionFile in input.files)) return "solutionFile must be a key in files";
 
+  const additional = input.additionalSolutionFiles ?? [];
+  for (const file of additional) {
+    if (!(file in input.files)) {
+      return `additionalSolutionFiles entry "${file}" must be a key in files`;
+    }
+  }
+  const editable = [input.solutionFile, ...additional];
+  if (new Set(editable).size !== editable.length) {
+    return "solutionFile and additionalSolutionFiles must not repeat a file";
+  }
+
   const [cmd, flag, testFile] = input.testCommand;
   if (input.testCommand.length !== 3 || cmd !== "node" || flag !== "--test") {
     return 'testCommand must be exactly ["node", "--test", "<file>"]';
@@ -55,6 +77,12 @@ export function validateSubmission(input: ChallengeSubmissionInput): string | nu
   }
   if (!testFile.endsWith(".test.js")) {
     return "testCommand's file must end in .test.js";
+  }
+  // Security: the grader must never be editable by an attempter. applySolution
+  // already refuses to write non-editable files, but reject at submission time
+  // too so a challenge that could rewrite its own tests never gets stored.
+  if (editable.includes(testFile)) {
+    return "the test file cannot be an editable solution file (a submission could rewrite the grader)";
   }
 
   return null;
@@ -77,6 +105,8 @@ export async function listChallengeMetadata(): Promise<ChallengeMeta[]> {
     title: c.title,
     prompt: c.prompt,
     authorName: null,
+    category: challengeCategory(c),
+    tags: c.tags ?? [],
   }));
 
   let custom: ChallengeMeta[] = [];
@@ -87,6 +117,10 @@ export async function listChallengeMetadata(): Promise<ChallengeMeta[]> {
       title: c.title,
       prompt: c.prompt,
       authorName: c.author_name,
+      // Player-authored challenges don't carry a category yet — default to
+      // correctness until a category column is added to submissions.
+      category: "correctness" as const,
+      tags: [],
     }));
   } catch {
     // Supabase not configured, or unreachable — built-ins alone still work.
@@ -119,6 +153,9 @@ export async function resolveChallenge(
       prompt: row.prompt,
       files: row.files,
       solutionFile: row.solution_file,
+      additionalSolutionFiles: row.additional_solution_files?.length
+        ? row.additional_solution_files
+        : undefined,
       testCommand: row.test_command,
     },
     authorName: row.author_name,

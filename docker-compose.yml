@@ -1,0 +1,30 @@
+# Run Agent Arena with the privileges its sandbox needs AND the resource limits
+# that contain a hostile challenge — the two host-level things a real launch
+# requires that a generic PaaS (Vercel/Netlify/etc.) will not give you, which is
+# why grading can't run there.
+#
+#   docker compose up --build
+#   curl localhost:3000/api/health   # confirm "ready": true before opening up
+services:
+  arena:
+    build: .
+    ports:
+      - "3000:3000"
+    # Put SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_SECRET here. Runs work
+    # without it (they just don't persist), but the leaderboard/economy need it.
+    env_file:
+      - .env.local
+    # `unshare --mount/--pid/--net` needs CAP_SYS_ADMIN; a default container
+    # drops it, so grading would fail with "Operation not permitted". This is a
+    # powerful capability — run this container on an isolated host, and rely on
+    # the limits below (not the capability) to contain untrusted grading.
+    cap_add:
+      - SYS_ADMIN
+    # The fork-bomb fix the sandbox's known-gap calls for, applied from OUTSIDE
+    # the app process by the container runtime — code inside the sandbox cannot
+    # raise these, so a player-authored test file can't exhaust the host's
+    # process table, RAM, or CPU during its grading window.
+    pids_limit: 512
+    mem_limit: 1g
+    cpus: 2.0
+    restart: unless-stopped

@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { runAgentLoop } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
+import { loadoutMultiplier, validateLoadout } from "@/lib/loadouts";
+import { getClientIp, retryAfterSeconds, runLimiter } from "@/lib/rateLimit";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -16,6 +18,7 @@ interface SubmitRunBody {
   apiKey?: string;
   model?: string;
   maxIterations?: number;
+  strategy?: string;
 }
 
 /**
@@ -24,6 +27,15 @@ interface SubmitRunBody {
  * key is used for exactly this one request and is never persisted or logged.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const limit = runLimiter.check(getClientIp(request));
+  if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit);
+    return NextResponse.json(
+      { error: `rate limit exceeded — retry in ${retryAfter}s` },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   let body: SubmitRunBody;
   try {
     body = await request.json();
@@ -31,12 +43,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const { challengeId, playerName, apiKey, model, maxIterations } = body;
+  const { challengeId, playerName, apiKey, model, maxIterations, strategy } = body;
   if (!challengeId || !playerName || !apiKey) {
     return NextResponse.json(
       { error: "challengeId, playerName, and apiKey are all required" },
       { status: 400 }
     );
+  }
+
+  const loadout = validateLoadout({ model, maxIterations, strategy });
+  if (!loadout.ok) {
+    return NextResponse.json({ error: loadout.error }, { status: 400 });
   }
 
   let challenge, authorName;
@@ -48,7 +65,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let loopResult;
   try {
-    loopResult = await runAgentLoop(challenge, { apiKey, model, maxIterations });
+    loopResult = await runAgentLoop(challenge, { apiKey, ...loadout.loadout });
   } catch (error) {
     return NextResponse.json(
       { error: `agent call failed: ${error instanceof Error ? error.message : String(error)}` },
@@ -62,7 +79,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     await recordRun({
       challenge_id: challenge.id,
       player_name: playerName,
-      model: model ?? "claude-sonnet-4-5",
+      model: loadout.loadout.model,
       passed: finalResult.passed,
       duration_ms: finalResult.durationMs,
       iterations,
@@ -75,7 +92,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error("failed to record run to Supabase:", error);
   }
 
-  const reward = calculateReward(finalResult.passed, iterations);
+  const reward = calculateReward(
+    finalResult.passed,
+    iterations,
+    loadoutMultiplier(loadout.loadout)
+  );
   let shardBalance: number | null = null;
   let claimToken: string | null = null;
   if (reward > 0) {

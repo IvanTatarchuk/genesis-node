@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import { listChallengeMetadata } from "@/lib/challengeSource";
 import { cosmetics } from "@/lib/cosmetics";
+import { modelLabel } from "@/lib/loadouts";
 import { fetchLeaderboard } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,8 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
     <main style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <h1>Leaderboard</h1>
       <p>
-        <Link href="/">Back</Link> · <Link href="/shop">Shop</Link> ·{" "}
+        <Link href="/">Back</Link> · <Link href="/ratings">Ratings</Link> ·{" "}
+        <Link href="/challenges">All challenges</Link> · <Link href="/shop">Shop</Link> ·{" "}
         <Link href="/challenges/submit">Submit a challenge</Link>
       </p>
 
@@ -68,14 +70,16 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
                 <tr key={`${row.player_name}-${row.created_at}`}>
                   <td style={cellStyle}>{i + 1}</td>
                   <td style={cellStyle}>
-                    {row.player_name}
+                    <Link href={`/players/${encodeURIComponent(row.player_name)}`}>
+                      {row.player_name}
+                    </Link>
                     {badge && (
                       <span style={{ marginLeft: "0.4rem" }} title={badge.name}>
                         {badge.name}
                       </span>
                     )}
                   </td>
-                  <td style={cellStyle}>{row.model}</td>
+                  <td style={cellStyle} title={row.model}>{modelLabel(row.model)}</td>
                   <td style={cellStyle}>{row.duration_ms}ms</td>
                   <td style={cellStyle}>{row.iterations}</td>
                 </tr>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { submitChallenge, type ChallengeSubmissionInput } from "@/lib/challengeSource";
+import { getClientIp, retryAfterSeconds, submitLimiter } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,15 @@ export const runtime = "nodejs";
  * until a moderator approves it.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const limit = submitLimiter.check(getClientIp(request));
+  if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit);
+    return NextResponse.json(
+      { error: `rate limit exceeded — retry in ${retryAfter}s` },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   let body: Partial<ChallengeSubmissionInput>;
   try {
     body = await request.json();

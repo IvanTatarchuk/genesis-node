@@ -4,6 +4,7 @@ import { runAgentLoop } from "@/lib/agentLoop";
 import { resolveChallenge } from "@/lib/challengeSource";
 import { calculateAuthorReward, calculateReward } from "@/lib/economy";
 import { loadoutMultiplier, validateLoadout } from "@/lib/loadouts";
+import { getClientIp, retryAfterSeconds, runLimiter } from "@/lib/rateLimit";
 import { awardShards, recordRun } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -26,6 +27,15 @@ interface SubmitRunBody {
  * key is used for exactly this one request and is never persisted or logged.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const limit = runLimiter.check(getClientIp(request));
+  if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit);
+    return NextResponse.json(
+      { error: `rate limit exceeded — retry in ${retryAfter}s` },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   let body: SubmitRunBody;
   try {
     body = await request.json();

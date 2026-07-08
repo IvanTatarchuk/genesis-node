@@ -192,11 +192,19 @@ Launch checklist:
 4. **Smoke-test one real run** with a valid Anthropic key — confirm a passing
    run streams, records to the leaderboard, and awards shards.
 
-Still open before a *public* (untrusted) launch, in rough priority: basic rate
-limiting on `/api/runs*` and challenge submission; a license decision (see
-below); and moving `/api/runs*` onto their own isolated host if you don't want
-`CAP_SYS_ADMIN` on the same box that serves the UI. Trusted/soft launch needs
-only steps 1–4.
+Abuse protection is in place: `/api/runs`, `/api/runs/stream`, and challenge
+submission are rate-limited per client IP with an in-memory token bucket
+(`lib/rateLimit.ts`) — a short burst then a steady sustained rate, returning
+`429` with a `Retry-After` header. In-memory is the right fit because the
+sandbox already pins the app to a single host; the run routes share one budget
+(they're the same expensive operation). It keys on `X-Forwarded-For` /
+`X-Real-IP`, so **put it behind a proxy you control** — those headers are
+spoofable on a directly-exposed app.
+
+Still open before a *public* (untrusted) launch, in rough priority: a license
+decision (see below); and moving `/api/runs*` onto their own isolated host if
+you don't want `CAP_SYS_ADMIN` on the same box that serves the UI.
+Trusted/soft launch needs only steps 1–4.
 
 ## Testing
 

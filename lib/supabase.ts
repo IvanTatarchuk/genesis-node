@@ -59,6 +59,16 @@ let serverClient: SupabaseClient | undefined;
  * message if the project isn't configured yet, rather than failing deep
  * inside a query.
  */
+/**
+ * Whether the Supabase env vars are present — a cheap, non-throwing check for
+ * the health endpoint (constructing the client or running a query would throw
+ * when unconfigured). Not a liveness check: it says "credentials are set", not
+ * "the database answered".
+ */
+export function isSupabaseConfigured(): boolean {
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
 export function getServerSupabaseClient(): SupabaseClient {
   if (serverClient) return serverClient;
 

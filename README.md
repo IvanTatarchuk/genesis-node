@@ -155,6 +155,49 @@ npm run dev
 Requires `unshare` (util-linux) on the host running the server — present on
 virtually every Linux distro, same requirement as mcp-guard's `probe`.
 
+## Launching (production)
+
+The one thing that dictates *where* this can run: grading needs `unshare` to
+create mount/net/pid namespaces, which **serverless PaaS hosts (Vercel,
+Netlify, …) do not permit** — a run there fails with `unshare: Operation not
+permitted`. So the app (or at least its `/api/runs*` routes) must run on a host
+that grants the capability: a VM/VPS, or a container with `CAP_SYS_ADMIN`. The
+included `Dockerfile` + `docker-compose.yml` do this and also apply the
+process/memory/CPU limits that contain a hostile challenge (the fork-bomb fix
+the sandbox's known-gap calls for), from *outside* the app process where code
+in the sandbox can't undo them.
+
+Launch checklist:
+
+1. **Supabase** — create a project, run `supabase/schema.sql` against it, and
+   put `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `ADMIN_SECRET` in
+   `.env.local`. (Runs execute without it, but nothing persists — no
+   leaderboard, shards, or ratings.)
+2. **Build & run** on a capable host:
+   ```bash
+   docker compose up --build -d
+   ```
+   `docker-compose.yml` grants `CAP_SYS_ADMIN` (for `unshare`) and caps
+   `pids_limit` / `mem_limit` / `cpus` (fork-bomb containment). Run it on an
+   isolated host — `CAP_SYS_ADMIN` is powerful; the limits, not the capability,
+   are what keep untrusted grading contained.
+3. **Verify readiness** — hit the health probe before sending anyone at it:
+   ```bash
+   curl localhost:3000/api/health
+   ```
+   `"ready": true` means the sandbox is usable (grading will work). It returns
+   `503` when `unshare` can't create namespaces — the single most likely deploy
+   mistake (wrong host / missing capability). `"status": "degraded"` means
+   ready-but-Supabase-not-configured (runs work, nothing persists).
+4. **Smoke-test one real run** with a valid Anthropic key — confirm a passing
+   run streams, records to the leaderboard, and awards shards.
+
+Still open before a *public* (untrusted) launch, in rough priority: basic rate
+limiting on `/api/runs*` and challenge submission; a license decision (see
+below); and moving `/api/runs*` onto their own isolated host if you don't want
+`CAP_SYS_ADMIN` on the same box that serves the UI. Trusted/soft launch needs
+only steps 1–4.
+
 ## Testing
 
 ```bash

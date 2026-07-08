@@ -111,6 +111,38 @@ export function buildSandboxedCommand(command: string[]): string[] {
 }
 
 /**
+ * Actually attempt a trivial sandboxed command and report whether it worked.
+ *
+ * `checkUnshareAvailable` only proves the `unshare` *binary* exists; this proves
+ * the kernel will let this process create the mount/net/pid namespaces the
+ * sandbox needs — the thing that fails on a stock CI runner or an
+ * insufficiently-privileged container (`unshare: Operation not permitted`).
+ * Used by the health endpoint to tell "ready to grade" from "will fail every
+ * run", and by the test suite to skip the sandbox suites where it can't run.
+ */
+export function probeSandbox(): { ok: boolean; detail: string } {
+  let argv: string[];
+  try {
+    argv = buildSandboxedCommand(["true"]);
+  } catch (error) {
+    return { ok: false, detail: error instanceof Error ? error.message : String(error) };
+  }
+
+  const [cmd, ...args] = argv;
+  if (!cmd) return { ok: false, detail: "empty sandbox command" };
+
+  const result = spawnSync(cmd, args, { timeout: 10_000 });
+  if (result.error) {
+    return { ok: false, detail: result.error.message };
+  }
+  if (result.status !== 0) {
+    const stderr = result.stderr?.toString().trim();
+    return { ok: false, detail: stderr || `unshare exited with status ${result.status}` };
+  }
+  return { ok: true, detail: "unshare namespaces available" };
+}
+
+/**
  * Build the sandboxed command for a challenge run specifically: seed a fresh
  * `/tmp/work` from `seedDir` (a read-only host path prepared by the caller),
  * cd into it, then run `testCommand`.

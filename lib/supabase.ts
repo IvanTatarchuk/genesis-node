@@ -34,6 +34,8 @@ export interface ChallengeRow {
   prompt: string;
   files: Record<string, string>;
   solution_file: string;
+  /** Extra editable files for a multi-file challenge; empty array for single-file. */
+  additional_solution_files: string[];
   test_command: string[];
   status: "pending" | "approved" | "rejected";
 }
@@ -45,6 +47,7 @@ interface ChallengeSubmission {
   prompt: string;
   files: Record<string, string>;
   solutionFile: string;
+  additionalSolutionFiles?: string[];
   testCommand: string[];
 }
 
@@ -56,6 +59,16 @@ let serverClient: SupabaseClient | undefined;
  * message if the project isn't configured yet, rather than failing deep
  * inside a query.
  */
+/**
+ * Whether the Supabase env vars are present — a cheap, non-throwing check for
+ * the health endpoint (constructing the client or running a query would throw
+ * when unconfigured). Not a liveness check: it says "credentials are set", not
+ * "the database answered".
+ */
+export function isSupabaseConfigured(): boolean {
+  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
 export function getServerSupabaseClient(): SupabaseClient {
   if (serverClient) return serverClient;
 
@@ -78,6 +91,31 @@ export async function recordRun(record: RunRecord): Promise<void> {
   if (error) {
     throw new Error(`failed to record run: ${error.message}`);
   }
+}
+
+export interface RunOutcome {
+  model: string;
+  challenge_id: string;
+  passed: boolean;
+  created_at: string;
+}
+
+/**
+ * Every run's outcome in chronological order — the input the Elo ratings
+ * (lib/rating.ts) are computed from. Ordered by created_at so the ratings are
+ * reproducible: anyone with the same run history recomputes the same numbers.
+ */
+export async function fetchAllRuns(): Promise<RunOutcome[]> {
+  const { data, error } = await getServerSupabaseClient()
+    .from("runs")
+    .select("model, challenge_id, passed, created_at")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`failed to fetch runs: ${error.message}`);
+  }
+
+  return data ?? [];
 }
 
 export async function fetchLeaderboard(challengeId: string): Promise<LeaderboardRow[]> {
@@ -213,6 +251,7 @@ export async function insertChallengeSubmission(input: ChallengeSubmission): Pro
     prompt: input.prompt,
     files: input.files,
     solution_file: input.solutionFile,
+    additional_solution_files: input.additionalSolutionFiles ?? [],
     test_command: input.testCommand,
   });
 
@@ -226,7 +265,9 @@ export async function insertChallengeSubmission(input: ChallengeSubmission): Pro
 export async function fetchApprovedChallenges(): Promise<ChallengeRow[]> {
   const { data, error } = await getServerSupabaseClient()
     .from("challenges")
-    .select("slug, author_name, title, prompt, files, solution_file, test_command, status")
+    .select(
+      "slug, author_name, title, prompt, files, solution_file, additional_solution_files, test_command, status"
+    )
     .eq("status", "approved")
     .order("created_at", { ascending: true });
 
@@ -240,7 +281,9 @@ export async function fetchApprovedChallenges(): Promise<ChallengeRow[]> {
 export async function fetchChallengeBySlug(slug: string): Promise<ChallengeRow | null> {
   const { data, error } = await getServerSupabaseClient()
     .from("challenges")
-    .select("slug, author_name, title, prompt, files, solution_file, test_command, status")
+    .select(
+      "slug, author_name, title, prompt, files, solution_file, additional_solution_files, test_command, status"
+    )
     .eq("slug", slug)
     .maybeSingle();
 

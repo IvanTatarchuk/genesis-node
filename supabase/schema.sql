@@ -242,10 +242,20 @@ create table if not exists public.challenges (
   prompt text not null,
   files jsonb not null,
   solution_file text not null,
+  -- Extra editable files for a multi-file challenge; empty for single-file.
+  -- The grading test file must never be listed here (enforced at submission
+  -- time in lib/challengeSource.ts) so an attempter can't rewrite the grader.
+  additional_solution_files text[] not null default '{}',
   test_command text[] not null,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   created_at timestamptz not null default now()
 );
+
+-- Migration for a challenges table created before multi-file challenges
+-- existed: CREATE TABLE IF NOT EXISTS above won't add the column to an already
+-- deployed table, so add it explicitly (idempotent, safe to re-run).
+alter table public.challenges
+  add column if not exists additional_solution_files text[] not null default '{}';
 
 create index if not exists challenges_status_idx on public.challenges (status);
 

@@ -16,20 +16,25 @@ export interface RunResult {
 }
 
 /**
- * Grade `solutionContent` against `challenge`: write it into a seed
+ * Grade a `submission` against `challenge`: write it into a seed
  * directory alongside the challenge's other files, run the test command
  * inside the sandbox, and report pass/fail plus captured output.
  *
- * Deliberately decoupled from how `solutionContent` was produced — an LLM
- * call (see lib/agent.ts), a human pasting code, or a fixture in a test can
- * all use this the same way.
+ * `submission` is either the content of the single primary solution file (a
+ * bare string) or a path -> content map for a multi-file challenge; see
+ * `applySolution`. Deliberately decoupled from how it was produced — an LLM
+ * call (see lib/agentLoop.ts), a human pasting code, or a fixture in a test
+ * can all use this the same way.
  */
-export async function runChallenge(challenge: Challenge, solutionContent: string): Promise<RunResult> {
+export async function runChallenge(
+  challenge: Challenge,
+  submission: string | Record<string, string>
+): Promise<RunResult> {
   const seedDir = mkdtempSync(join("/var/tmp", `agent-arena-${challenge.id}-`));
   const startedAt = Date.now();
 
   try {
-    const files = applySolution(challenge, solutionContent);
+    const files = applySolution(challenge, submission);
     for (const [relativePath, content] of Object.entries(files)) {
       const fullPath = join(seedDir, relativePath);
       mkdirSync(dirname(fullPath), { recursive: true });

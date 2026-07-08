@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { validateSubmission, type ChallengeSubmissionInput } from "../lib/challengeSource";
+import {
+  listChallengeMetadata,
+  validateSubmission,
+  type ChallengeSubmissionInput,
+} from "../lib/challengeSource";
 
 function validSubmission(overrides: Partial<ChallengeSubmissionInput> = {}): ChallengeSubmissionInput {
   return {
@@ -64,5 +68,78 @@ describe("validateSubmission", () => {
     expect(validateSubmission(validSubmission({ title: "" }))).toMatch(/title/);
     expect(validateSubmission(validSubmission({ prompt: "" }))).toMatch(/prompt/);
     expect(validateSubmission(validSubmission({ files: {} }))).toMatch(/files/);
+  });
+
+  it("accepts a multi-file submission with additional editable files", () => {
+    const files = {
+      "a.js": "x",
+      "b.js": "y",
+      "a.test.js": "require('node:test');",
+    };
+    expect(
+      validateSubmission(
+        validSubmission({ files, solutionFile: "a.js", additionalSolutionFiles: ["b.js"] })
+      )
+    ).toBeNull();
+  });
+
+  it("rejects an additional solution file that wasn't submitted in files", () => {
+    expect(
+      validateSubmission(validSubmission({ additionalSolutionFiles: ["missing.js"] }))
+    ).toMatch(/additionalSolutionFiles/);
+  });
+
+  it("rejects a file that is both the primary and an additional solution file", () => {
+    const files = { "a.js": "x", "a.test.js": "y" };
+    expect(
+      validateSubmission(
+        validSubmission({ files, solutionFile: "a.js", additionalSolutionFiles: ["a.js"] })
+      )
+    ).toMatch(/must not repeat/);
+  });
+
+  it("rejects making the test file editable — even as the primary solution file", () => {
+    const files = { "a.test.js": "require('node:test');" };
+    expect(
+      validateSubmission(
+        validSubmission({
+          files,
+          solutionFile: "a.test.js",
+          testCommand: ["node", "--test", "a.test.js"],
+        })
+      )
+    ).toMatch(/rewrite the grader/);
+  });
+
+  it("rejects making the test file editable via additionalSolutionFiles", () => {
+    const files = { "a.js": "x", "a.test.js": "require('node:test');" };
+    expect(
+      validateSubmission(
+        validSubmission({
+          files,
+          solutionFile: "a.js",
+          additionalSolutionFiles: ["a.test.js"],
+          testCommand: ["node", "--test", "a.test.js"],
+        })
+      )
+    ).toMatch(/rewrite the grader/);
+  });
+});
+
+// Supabase isn't configured under test, so listChallengeMetadata falls back to
+// the built-in catalog — enough to check category/tags are threaded through.
+describe("listChallengeMetadata (built-ins)", () => {
+  it("carries category and tags on the built-in challenges", async () => {
+    const meta = await listChallengeMetadata();
+
+    const pathTraversal = meta.find((c) => c.id === "path-traversal");
+    expect(pathTraversal?.category).toBe("security");
+    expect(pathTraversal?.tags).toContain("cwe-22");
+
+    const sumRange = meta.find((c) => c.id === "sum-range");
+    expect(sumRange?.category).toBe("correctness");
+    expect(sumRange?.tags).toEqual([]);
+
+    expect(meta.filter((c) => c.category === "security").length).toBeGreaterThanOrEqual(3);
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCosmetic } from "@/lib/cosmetics";
+import { cosmeticsLimiter, getClientIp, retryAfterSeconds } from "@/lib/rateLimit";
 import { equipCosmetic } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -17,6 +18,15 @@ interface EquipBody {
  * function, not here — this route just validates shape and relays errors.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const limit = cosmeticsLimiter.check(getClientIp(request));
+  if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit);
+    return NextResponse.json(
+      { error: `rate limit exceeded — retry in ${retryAfter}s` },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   let body: EquipBody;
   try {
     body = await request.json();

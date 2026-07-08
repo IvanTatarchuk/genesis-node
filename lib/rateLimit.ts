@@ -99,9 +99,18 @@ const RUN_BURST = 5;
 const RUN_PER_MINUTE = 5;
 const SUBMIT_BURST = 5;
 const SUBMIT_PER_MINUTE = 10;
+// Cheap DB writes, not a sandboxed run — a legitimate player buying/equipping
+// several items in a row shouldn't get throttled, so this is more generous
+// than the other two. Brute-forcing a claim_token isn't the threat this
+// guards against (it's a random UUID — 2^122 guesses, rate limiting doesn't
+// move that number); this is about not leaving an unthrottled write path
+// next to two throttled ones.
+const COSMETICS_BURST = 20;
+const COSMETICS_PER_MINUTE = 30;
 
 export const runLimiter = new RateLimiter(RUN_BURST, RUN_PER_MINUTE / 60_000);
 export const submitLimiter = new RateLimiter(SUBMIT_BURST, SUBMIT_PER_MINUTE / 60_000);
+export const cosmeticsLimiter = new RateLimiter(COSMETICS_BURST, COSMETICS_PER_MINUTE / 60_000);
 
 /** Seconds to advertise in a `Retry-After` header for a blocked result. */
 export function retryAfterSeconds(result: RateLimitResult): number {

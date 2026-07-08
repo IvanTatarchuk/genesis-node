@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCosmetic } from "@/lib/cosmetics";
+import { cosmeticsLimiter, getClientIp, retryAfterSeconds } from "@/lib/rateLimit";
 import { purchaseCosmetic } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -18,6 +19,15 @@ interface PurchaseBody {
  * relays the function's result/error.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const limit = cosmeticsLimiter.check(getClientIp(request));
+  if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit);
+    return NextResponse.json(
+      { error: `rate limit exceeded — retry in ${retryAfter}s` },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
+  }
+
   let body: PurchaseBody;
   try {
     body = await request.json();

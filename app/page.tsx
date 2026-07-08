@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { challengeList } from "@/challenges";
+import { challengeCategory, type ChallengeCategory } from "@/lib/challenge";
 import { storeClaimToken } from "@/lib/claimToken";
 import { calculateReward } from "@/lib/economy";
 import {
@@ -15,12 +16,15 @@ import {
   MIN_ITERATIONS,
   MODELS,
 } from "@/lib/loadouts";
+import { getStoredRole, storeRole } from "@/lib/rolePreference";
+import { DEFAULT_ROLE, ROLES, type RoleId } from "@/lib/roles";
 
 interface ChallengeMeta {
   id: string;
   title: string;
   prompt: string;
   authorName: string | null;
+  category: ChallengeCategory;
 }
 
 const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
@@ -28,6 +32,7 @@ const builtInMeta: ChallengeMeta[] = challengeList.map((c) => ({
   title: c.title,
   prompt: c.prompt,
   authorName: null,
+  category: challengeCategory(c),
 }));
 
 interface LiveIteration {
@@ -87,6 +92,7 @@ export default function HomePage() {
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [maxIterations, setMaxIterations] = useState(DEFAULT_ITERATIONS);
   const [strategy, setStrategy] = useState("");
+  const [role, setRole] = useState<RoleId>(DEFAULT_ROLE);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [liveIterations, setLiveIterations] = useState<LiveIteration[]>([]);
   const [done, setDone] = useState<DonePayload | null>(null);
@@ -98,6 +104,16 @@ export default function HomePage() {
       .then((body: { challenges: ChallengeMeta[] }) => setChallenges(body.challenges))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const stored = getStoredRole();
+    if (stored) setRole(stored);
+  }, []);
+
+  function chooseRole(next: RoleId) {
+    setRole(next);
+    storeRole(next);
+  }
 
   const challenge = useMemo(
     () => challenges.find((c) => c.id === challengeId) ?? challenges[0]!,
@@ -154,9 +170,35 @@ export default function HomePage() {
     setStatus("done");
   }
 
+  const activeRole = ROLES.find((r) => r.id === role) ?? ROLES[0]!;
+
   return (
     <main style={{ maxWidth: 720, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <h1>Agent Arena</h1>
+
+      <fieldset style={{ border: "1px solid #ddd", borderRadius: 4, padding: "0.75rem", marginBottom: "1rem" }}>
+        <legend style={{ padding: "0 0.4rem", color: "#555" }}>Your path</legend>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {ROLES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => chooseRole(r.id)}
+              style={{
+                padding: "0.4rem 0.75rem",
+                borderRadius: 4,
+                border: `1px solid ${r.id === role ? "#3a3" : "#ccc"}`,
+                background: r.id === role ? "#eaffea" : "#fff",
+                fontWeight: r.id === role ? "bold" : "normal",
+                cursor: "pointer",
+              }}
+            >
+              {r.label} — {r.tagline}
+            </button>
+          ))}
+        </div>
+        <p style={{ margin: "0.5rem 0 0", color: "#666", fontSize: "0.85rem" }}>{activeRole.does}</p>
+      </fieldset>
 
       <label>
         Challenge
@@ -172,12 +214,18 @@ export default function HomePage() {
         >
           {challenges.map((c) => (
             <option key={c.id} value={c.id}>
+              {c.category === "security" ? "🛡️ " : ""}
               {c.title}
               {c.authorName && ` (by ${c.authorName})`}
             </option>
           ))}
         </select>
       </label>
+      {challenge.category === "security" && (
+        <p style={{ margin: "0 0 0.25rem", color: "#a15c00", fontWeight: "bold" }}>
+          🛡️ Security challenge — fix the vulnerability, don&apos;t just make the test pass.
+        </p>
+      )}
       <p style={{ whiteSpace: "pre-wrap", color: "#555" }}>{challenge.prompt}</p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}>

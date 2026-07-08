@@ -10,9 +10,23 @@
  * the runner, the agent loop) treats the editable set uniformly, so the
  * single-file case is just the one-entry case.
  */
+/**
+ * A challenge is either a plain correctness bug or a security vulnerability.
+ * Security challenges are graded exactly like the rest (an objective sandboxed
+ * test), but the test checks that an *exploit* is closed rather than that a
+ * feature works — which is what makes this a security platform without new
+ * infrastructure. The category also lets the UI label them and lets a breaker
+ * (see lib/roles.ts) filter to the traps they care about.
+ */
+export type ChallengeCategory = "correctness" | "security";
+
 export interface Challenge {
   id: string;
   title: string;
+  /** Defaults to "correctness" when unset (see `challengeCategory`). */
+  category?: ChallengeCategory;
+  /** Freeform labels, e.g. a vulnerability class like "path-traversal". */
+  tags?: string[];
   /** Given to the agent as the task description. */
   prompt: string;
   /** Relative path -> file content, written into the run's working directory verbatim. */
@@ -29,6 +43,11 @@ export interface Challenge {
   additionalSolutionFiles?: string[];
   /** Command run inside the sandbox to grade the submission, e.g. ["node", "--test", "sum.test.js"]. */
   testCommand: string[];
+}
+
+/** A challenge's category, defaulting to "correctness" when unspecified. */
+export function challengeCategory(challenge: Challenge): ChallengeCategory {
+  return challenge.category ?? "correctness";
 }
 
 /** The full set of files a submission is allowed to replace, primary first. */

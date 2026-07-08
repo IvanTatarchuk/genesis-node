@@ -10,7 +10,7 @@ This is the "crawl" phase of the plan: prove the core loop works before
 investing in live streaming, cosmetics/monetization, or a real challenge
 catalog. What exists right now:
 
-- Six real challenges (`challenges/*.ts`) of increasing difficulty —
+- Seven real challenges (`challenges/*.ts`) of increasing difficulty —
   `sum-range` (off-by-one loop bound), `reverse-words` (wrong granularity:
   reverses characters instead of word order), `is-palindrome` (missing
   non-alphanumeric filtering, so it fails on real-world input with
@@ -31,7 +31,26 @@ catalog. What exists right now:
   the multi-bug challenges the self-check goes further: it proves each *partial*
   fix still fails (so the design can't quietly degrade into a one-liner), and
   for `csv-sum` that a submission editing the test file is ignored (so the
-  grader can never be rewritten).
+  grader can never be rewritten). And `path-traversal` — the first *security*
+  challenge (`category: "security"`): `readFileInDir` uses `path.resolve` on a
+  caller-supplied name, so `../secret` and absolute paths escape the base
+  directory; the fix is the standard resolve-and-confine check. It's graded
+  exactly like the rest — the test just asserts the *exploit* is closed (the
+  escape throws) while a legitimate read still works — which is what makes this
+  a security platform without any new grading infrastructure.
+- **Registration roles — the red-team / blue-team split** (`lib/roles.ts`). A
+  player picks a path: a **Breaker** (attacker mindset — author challenges,
+  craft vulnerable code and traps, score when your challenge survives) or a
+  **Defender** (builder mindset — configure agents and strategies that patch
+  challenges, score when your loadout clears one). Both compete on the same
+  objective, reproducible grading, so a breaker's challenge is only "unbroken"
+  because a real sandboxed run says so, and a defender's win is a win for the
+  same reason — and the ledger records both sides immutably. The role domain is
+  a pure, unit-tested module; the choice is surfaced on the home page (persisted
+  client-side via `lib/rolePreference.ts`) and frames the experience. Turning
+  the role into a persisted account with per-role ratings is the next step;
+  the substrate (security challenges + strategy loadouts + ratings + ledger) is
+  already here.
 - A sandboxed runner (`lib/sandbox.ts`, `lib/runner.ts`) — same isolation
   strategy validated in [mcp-guard](https://github.com/IvanTatarchuk/MyBotAI_Updates):
   pure `unshare` (no Docker/bubblewrap), network-isolated, filesystem

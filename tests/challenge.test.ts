@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { csvSumChallenge } from "../challenges/csv-sum";
+import { pathTraversalChallenge } from "../challenges/path-traversal";
 import { sumRangeChallenge } from "../challenges/sum-range";
-import { applySolution, editableFiles, type Challenge } from "../lib/challenge";
+import { applySolution, challengeCategory, editableFiles, type Challenge } from "../lib/challenge";
 
 describe("editableFiles", () => {
   it("is just the primary solution file for a single-file challenge", () => {
@@ -11,6 +12,16 @@ describe("editableFiles", () => {
 
   it("is the primary plus additional files for a multi-file challenge, primary first", () => {
     expect(editableFiles(csvSumChallenge)).toEqual(["parse.js", "sum.js"]);
+  });
+});
+
+describe("challengeCategory", () => {
+  it("defaults to correctness when unset", () => {
+    expect(challengeCategory(sumRangeChallenge)).toBe("correctness");
+  });
+
+  it("reflects an explicit security category", () => {
+    expect(challengeCategory(pathTraversalChallenge)).toBe("security");
   });
 });
 

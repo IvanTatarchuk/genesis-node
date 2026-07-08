@@ -1,4 +1,4 @@
-import type { Challenge } from "./challenge";
+import { challengeCategory, type Challenge, type ChallengeCategory } from "./challenge";
 import { challengeList, challenges as builtInChallenges } from "../challenges";
 import { fetchApprovedChallenges, fetchChallengeBySlug, insertChallengeSubmission } from "./supabase";
 
@@ -7,6 +7,7 @@ export interface ChallengeMeta {
   title: string;
   prompt: string;
   authorName: string | null;
+  category: ChallengeCategory;
 }
 
 export interface ChallengeSubmissionInput {
@@ -102,6 +103,7 @@ export async function listChallengeMetadata(): Promise<ChallengeMeta[]> {
     title: c.title,
     prompt: c.prompt,
     authorName: null,
+    category: challengeCategory(c),
   }));
 
   let custom: ChallengeMeta[] = [];
@@ -112,6 +114,9 @@ export async function listChallengeMetadata(): Promise<ChallengeMeta[]> {
       title: c.title,
       prompt: c.prompt,
       authorName: c.author_name,
+      // Player-authored challenges don't carry a category yet — default to
+      // correctness until a category column is added to submissions.
+      category: "correctness" as const,
     }));
   } catch {
     // Supabase not configured, or unreachable — built-ins alone still work.

@@ -3,6 +3,7 @@ import { binarySearchChallenge } from "./binary-search";
 import { csvSumChallenge } from "./csv-sum";
 import { isPalindromeChallenge } from "./is-palindrome";
 import { mergeIntervalsChallenge } from "./merge-intervals";
+import { pathTraversalChallenge } from "./path-traversal";
 import { reverseWordsChallenge } from "./reverse-words";
 import { sumRangeChallenge } from "./sum-range";
 
@@ -13,6 +14,7 @@ export const challengeList: Challenge[] = [
   binarySearchChallenge,
   mergeIntervalsChallenge,
   csvSumChallenge,
+  pathTraversalChallenge,
 ];
 
 export const challenges: Record<string, Challenge> = Object.fromEntries(

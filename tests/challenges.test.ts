@@ -4,6 +4,7 @@ import { binarySearchChallenge } from "../challenges/binary-search";
 import { csvSumChallenge } from "../challenges/csv-sum";
 import { isPalindromeChallenge } from "../challenges/is-palindrome";
 import { mergeIntervalsChallenge } from "../challenges/merge-intervals";
+import { pathTraversalChallenge } from "../challenges/path-traversal";
 import { reverseWordsChallenge } from "../challenges/reverse-words";
 import type { Challenge } from "../lib/challenge";
 import { runChallenge } from "../lib/runner";
@@ -87,6 +88,25 @@ const cases: Array<{ challenge: Challenge; correctFix: string }> = [
       "}",
       "",
       "module.exports = { mergeIntervals };",
+      "",
+    ].join("\n"),
+  },
+  {
+    challenge: pathTraversalChallenge,
+    correctFix: [
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "",
+      "function readFileInDir(baseDir, name) {",
+      "  const resolvedBase = path.resolve(baseDir);",
+      "  const target = path.resolve(resolvedBase, name);",
+      "  if (target !== resolvedBase && !target.startsWith(resolvedBase + path.sep)) {",
+      "    throw new Error('path escapes the base directory');",
+      "  }",
+      "  return fs.readFileSync(target, 'utf8');",
+      "}",
+      "",
+      "module.exports = { readFileInDir };",
       "",
     ].join("\n"),
   },

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { binarySearchChallenge } from "../challenges/binary-search";
 import { csvSumChallenge } from "../challenges/csv-sum";
 import { isPalindromeChallenge } from "../challenges/is-palindrome";
+import { evalInjectionChallenge } from "../challenges/eval-injection";
 import { mergeIntervalsChallenge } from "../challenges/merge-intervals";
 import { pathTraversalChallenge } from "../challenges/path-traversal";
+import { prototypePollutionChallenge } from "../challenges/prototype-pollution";
 import { reverseWordsChallenge } from "../challenges/reverse-words";
 import type { Challenge } from "../lib/challenge";
 import { runChallenge } from "../lib/runner";
@@ -107,6 +109,39 @@ const cases: Array<{ challenge: Challenge; correctFix: string }> = [
       "}",
       "",
       "module.exports = { readFileInDir };",
+      "",
+    ].join("\n"),
+  },
+  {
+    challenge: prototypePollutionChallenge,
+    correctFix: [
+      "function merge(target, source) {",
+      "  for (const key of Object.keys(source)) {",
+      "    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;",
+      "    if (",
+      "      source[key] && typeof source[key] === 'object' &&",
+      "      target[key] && typeof target[key] === 'object'",
+      "    ) {",
+      "      merge(target[key], source[key]);",
+      "    } else {",
+      "      target[key] = source[key];",
+      "    }",
+      "  }",
+      "  return target;",
+      "}",
+      "",
+      "module.exports = { merge };",
+      "",
+    ].join("\n"),
+  },
+  {
+    challenge: evalInjectionChallenge,
+    correctFix: [
+      "function parseConfig(text) {",
+      "  return JSON.parse(text);",
+      "}",
+      "",
+      "module.exports = { parseConfig };",
       "",
     ].join("\n"),
   },

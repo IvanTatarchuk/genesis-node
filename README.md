@@ -10,7 +10,7 @@ This is the "crawl" phase of the plan: prove the core loop works before
 investing in live streaming, cosmetics/monetization, or a real challenge
 catalog. What exists right now:
 
-- Seven real challenges (`challenges/*.ts`) of increasing difficulty —
+- Nine real challenges (`challenges/*.ts`) of increasing difficulty —
   `sum-range` (off-by-one loop bound), `reverse-words` (wrong granularity:
   reverses characters instead of word order), `is-palindrome` (missing
   non-alphanumeric filtering, so it fails on real-world input with
@@ -37,7 +37,14 @@ catalog. What exists right now:
   directory; the fix is the standard resolve-and-confine check. It's graded
   exactly like the rest — the test just asserts the *exploit* is closed (the
   escape throws) while a legitimate read still works — which is what makes this
-  a security platform without any new grading infrastructure.
+  a security platform without any new grading infrastructure. Two more security
+  challenges cover distinct vulnerability classes the same way:
+  `prototype-pollution` (CWE-1321 — a recursive `merge` that doesn't guard
+  `__proto__`, so a crafted payload writes to `Object.prototype`; the test
+  asserts a fresh `{}` didn't inherit the planted property) and `eval-injection`
+  (CWE-95 — `parseConfig` `eval`s its input instead of parsing it; the test
+  feeds a payload that would run code and asserts it neither executed nor was
+  accepted). Each ships the usual self-check (vuln fails, fix passes).
 - **Registration roles — the red-team / blue-team split** (`lib/roles.ts`). A
   player picks a path: a **Breaker** (attacker mindset — author challenges,
   craft vulnerable code and traps, score when your challenge survives) or a

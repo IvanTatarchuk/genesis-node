@@ -1,9 +1,11 @@
 import type { Challenge } from "../lib/challenge";
 import { binarySearchChallenge } from "./binary-search";
 import { csvSumChallenge } from "./csv-sum";
+import { evalInjectionChallenge } from "./eval-injection";
 import { isPalindromeChallenge } from "./is-palindrome";
 import { mergeIntervalsChallenge } from "./merge-intervals";
 import { pathTraversalChallenge } from "./path-traversal";
+import { prototypePollutionChallenge } from "./prototype-pollution";
 import { reverseWordsChallenge } from "./reverse-words";
 import { sumRangeChallenge } from "./sum-range";
 
@@ -15,6 +17,8 @@ export const challengeList: Challenge[] = [
   mergeIntervalsChallenge,
   csvSumChallenge,
   pathTraversalChallenge,
+  prototypePollutionChallenge,
+  evalInjectionChallenge,
 ];
 
 export const challenges: Record<string, Challenge> = Object.fromEntries(
